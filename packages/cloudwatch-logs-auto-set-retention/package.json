@@ -1,0 +1,20 @@
+{
+    "name": "cloudwatch-logs-auto-set-retention",
+    "private": true,
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "jest",
+        "package": "sam package --template-file template.yml --output-template-file packaged.yml --s3-bucket sar-logging-set-retention",
+        "publish": "sam publish --template packaged.yml --region us-east-1"
+    },
+    "author": "Yan Cui",
+    "license": "MIT",
+    "devDependencies": {
+        "jest": "^24.5.0"
+    },
+    "dependencies": {
+        "aws-sdk": "^2.420.0"
+    }
+}

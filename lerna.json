@@ -1,0 +1,12 @@
+{
+  "lerna": "3.10.8",
+  "packages": [
+    "packages/*"
+  ],
+  "version": "1.0.0",
+  "command": {
+    "version": {
+      "allowBranch": "master"
+    }
+  }
+}

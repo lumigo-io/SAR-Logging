@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: auto-set-log-group-retention
+    Description: Updates the retention policy for new and existing CloudWatch log groups to the specified number of days.
+    Author: Lumigo
+    SpdxLicenseId: MIT
+    LicenseUrl: LICENSE
+    ReadmeUrl: README.md
+    Labels: ['logging', 'ops', 'automation']
+    HomePageUrl: https://github.com/lumigo/SAR-Logging
+    SemanticVersion: 0.0.7
+    SourceCodeUrl: https://github.com/lumigo/SAR-Logging
+
+Resources:
+  SetRetentionForNewLogGroups:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/set-retention.newLogGroups
+      Runtime: nodejs8.10
+      Description: Updates the retention policy for a newly create CloudWatch log group to the specified number of days.
+      MemorySize: 128
+      Timeout: 6
+      Environment:
+        Variables:
+          RETENTION_DAYS:
+            Ref: RetentionDays
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action: logs:PutRetentionPolicy
+            Resource: '*'
+      Events:
+        SubscribeEvent:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+                - aws.logs
+              detail-type:
+                - AWS API Call via CloudTrail
+              detail:
+                eventSource:
+                  - logs.amazonaws.com
+                eventName:
+                  - CreateLogGroup
+
+  SetRetentionForExistingLogGroups:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/set-retention.existingLogGroups
+      Runtime: nodejs8.10
+      Description: Updates the retention policy for existing log groups to match the configured number of days.
+      MemorySize: 128
+      Timeout: 900
+      Environment:
+        Variables:
+          RETENTION_DAYS:
+            Ref: RetentionDays
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action:
+              - logs:PutRetentionPolicy
+              - logs:DescribeLogGroups
+            Resource: '*'
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+
+Parameters:
+  RetentionDays:
+    Type: Number
+    Default: 7
+    Description: The number of days to retain logs in CloudWatch Logs for.

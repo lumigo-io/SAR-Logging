@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: auto-subscribe-log-group-to-arn
+    Description: Subscribes new and existing CloudWatch log groups to Lambda/Kinesis/Firehose by ARN.
+    Author: Lumigo
+    SpdxLicenseId: MIT
+    LicenseUrl: LICENSE
+    ReadmeUrl: README.md
+    Labels: ['logging', 'ops', 'automation']
+    HomePageUrl: https://github.com/lumigo/SAR-Logging
+    SemanticVersion: 0.0.14
+    SourceCodeUrl: https://github.com/lumigo/SAR-Logging
+
+Resources:
+  SubscribeNewLogGroups:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/subscribe.newLogGroups
+      Runtime: nodejs8.10
+      Description: Subscribes a newly create CloudWatch log group to the specified ARN
+      MemorySize: 128
+      Timeout: 6
+      Environment:
+        Variables:
+          PREFIX:
+            Ref: Prefix
+          DESTINATION_ARN:
+            Ref: DestinationArn
+          FILTER_NAME:
+            Ref: FilterName
+          FILTER_PATTERN:
+            Ref: FilterPattern
+          ROLE_ARN:
+            Fn::GetAtt:
+              - CloudWatchToKinesisRole
+              - Arn
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action: logs:PutSubscriptionFilter
+            Resource: '*'
+        - Statement:
+            Effect: Allow
+            Action: lambda:AddPermission
+            Resource: '*'
+        - Statement: # required for subscribing to a Kinesis stream
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: '*'
+      Events:
+        SubscribeEvent:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+                - aws.logs
+              detail-type:
+                - AWS API Call via CloudTrail
+              detail:
+                eventSource:
+                  - logs.amazonaws.com
+                eventName:
+                  - CreateLogGroup
+
+  SubscribeExistingLogGroups:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/subscribe.existingLogGroups
+      Runtime: nodejs8.10
+      Description: Subscribes existing log groups to the specified destination ARN.
+      MemorySize: 128
+      Timeout: 900
+      Environment:
+        Variables:
+          PREFIX:
+            Ref: Prefix
+          DESTINATION_ARN:
+            Ref: DestinationArn
+          FILTER_NAME:
+            Ref: FilterName
+          FILTER_PATTERN:
+            Ref: FilterPattern
+          ROLE_ARN:
+            Fn::GetAtt:
+              - CloudWatchToKinesisRole
+              - Arn
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action: 
+              - logs:PutSubscriptionFilter
+              - logs:DescribeLogGroups
+              - logs:describeSubscriptionFilters
+            Resource: '*'
+        - Statement:
+            Effect: Allow
+            Action: lambda:AddPermission
+            Resource: '*'
+        - Statement: # required for subscribing to a Kinesis stream
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: '*'
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+
+  CloudWatchToKinesisRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          Effect: Allow
+          Action: sts:AssumeRole
+          Principal: 
+            Service: 
+              Fn::Join:
+                - '.'
+                - - logs
+                  - Ref: AWS::Region
+                  - amazonaws.com
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version : '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kinesis:put*
+                  - firehose:put*
+                Resource: '*'
+
+Parameters:
+  DestinationArn:
+    Type: String    
+    Description: >
+      The ARN of the Lambda function or Kinesis stream to subscribe a newly created CloudWatch log group to.
+  Prefix:
+    Type: String
+    Default: ''
+    Description: >
+      (Optional) if specified then only log groups with the prefix will be subscribed. 
+      E.g. '/aws/lambda/' will subscribe only Lambda function logs
+  FilterName:
+    Type: String
+    Default: 'ship-logs'
+    Description: >
+      (Optional) if specified, will override the filter name for the subscription.
+  FilterPattern:
+    Type: String
+    Default: '[timestamp=*Z, request_id="*-*", event]'
+    Description: >
+      (Optional) if specified, will override the filter pattern used to create the subscription.
