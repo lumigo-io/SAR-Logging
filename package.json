@@ -5,6 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "install": "lerna bootstrap",
     "test": "lerna run --concurrency 2 test -- -- --config=../../jest.config.js",
     "test:lint": "eslint .",
     "package": "lerna run package",
