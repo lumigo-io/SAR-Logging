@@ -9,9 +9,9 @@ Metadata:
     SpdxLicenseId: MIT
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
-    Labels: ['logging', 'ops', 'automation']
+    Labels: ['cloudwatch', 'logs', 'ops', 'automation']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 0.0.7
+    SemanticVersion: 1.0.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Resources:
