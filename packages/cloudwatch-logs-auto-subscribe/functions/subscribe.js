@@ -12,12 +12,12 @@ const filterPattern = FILTER_PATTERN || '[timestamp=*Z, request_id="*-*", event]
 module.exports.existingLogGroups = async () => {
   const loop = async (nextToken) => {
     const req = {
-      logGroupNamePrefix: PREFIX,
       nextToken: nextToken
     }
     const resp = await cloudWatchLogs.describeLogGroups(req).promise()
+    const logGroups = resp.logGroups.filter(x => x.logGroupName.startsWith(PREFIX))
 
-    for (const { logGroupName } of resp.logGroups) {
+    for (const { logGroupName } of logGroups) {
       const subFilterReq = {
         logGroupName: logGroupName
       }
@@ -25,11 +25,15 @@ module.exports.existingLogGroups = async () => {
 
       if (subFilterResp.subscriptionFilters.length === 0) {
         console.log(`[${logGroupName}] doesn't have a filter yet`)
-        await subscribe(logGroupName)
+
+        // swallow exception so we can move onto the next log group
+        await subscribe(logGroupName).catch(_ => {})
       } else if (subFilterResp.subscriptionFilters[0].destinationArn !== DESTINATION_ARN) {
         const oldDestArn = subFilterResp.subscriptionFilters[0].destinationArn
         console.log(`[${logGroupName}] has an old destination ARN [${oldDestArn}], updating...`)
-        await subscribe(logGroupName)
+
+        // swallow exception so we can move onto the next log group
+        await subscribe(logGroupName).catch(console.error)
       }
     }
 
