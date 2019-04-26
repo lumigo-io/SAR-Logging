@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'automation']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.0.3
+    SemanticVersion: 1.0.4
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Resources:
