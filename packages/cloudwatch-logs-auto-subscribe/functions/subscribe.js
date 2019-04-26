@@ -7,7 +7,7 @@ const { PREFIX, DESTINATION_ARN, FILTER_NAME, FILTER_PATTERN, ROLE_ARN } = proce
 const isLambda = DESTINATION_ARN.startsWith('arn:aws:lambda')
 
 const filterName = FILTER_NAME || 'ship-logs'
-const filterPattern = FILTER_PATTERN || '[timestamp=*Z, request_id="*-*", event]'
+const filterPattern = FILTER_PATTERN || ''
 
 module.exports.existingLogGroups = async () => {
   const loop = async (nextToken) => {

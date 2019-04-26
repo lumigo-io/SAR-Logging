@@ -94,9 +94,9 @@ describe('new log group', () => {
 describe('existing log group', () => {
   const handler = require('./subscribe').existingLogGroups
 
-  test('', async () => {
-    givenDescribeLogGroupsReturns(['group1', 'group2'], true)
-    givenDescribeLogGroupsReturns(['group3'])
+  test.only('should replace filters that are different', async () => {
+    givenDescribeLogGroupsReturns(['/aws/lambda/group1', '/aws/lambda/group2'], true)
+    givenDescribeLogGroupsReturns(['/aws/lambda/group3'])
 
     givenDescribeFiltersReturns(destinationArn) // group1 (ignored)
     givenDescribeFiltersReturns('some-other-arn') // group2 (replaced)
