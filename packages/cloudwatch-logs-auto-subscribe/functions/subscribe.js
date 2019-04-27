@@ -3,7 +3,7 @@ const cloudWatchLogs = new AWS.CloudWatchLogs()
 const lambda = new AWS.Lambda()
 const uuid = require('uuid/v4')
 
-const { PREFIX, DESTINATION_ARN, FILTER_NAME, FILTER_PATTERN, ROLE_ARN } = process.env
+const { PREFIX, EXCLUDE_PREFIX, DESTINATION_ARN, FILTER_NAME, FILTER_PATTERN, ROLE_ARN } = process.env
 const isLambda = DESTINATION_ARN.startsWith('arn:aws:lambda')
 
 const filterName = FILTER_NAME || 'ship-logs'
@@ -15,7 +15,9 @@ module.exports.existingLogGroups = async () => {
       nextToken: nextToken
     }
     const resp = await cloudWatchLogs.describeLogGroups(req).promise()
-    const logGroups = resp.logGroups.filter(x => x.logGroupName.startsWith(PREFIX))
+    const logGroups = resp.logGroups.filter(x =>
+      !x.logGroupName.startsWith(EXCLUDE_PREFIX) &&
+      x.logGroupName.startsWith(PREFIX))
 
     for (const { logGroupName } of logGroups) {
       const subFilterReq = {
@@ -52,11 +54,17 @@ module.exports.newLogGroups = async (event) => {
   const logGroupName = event.detail.requestParameters.logGroupName
   console.log(`log group: ${logGroupName}`)
 
+  if (EXCLUDE_PREFIX && logGroupName.startsWith(EXCLUDE_PREFIX)) {
+    console.log(`ignored the log group [${logGroupName}] because it matches the exclude prefix [${EXCLUDE_PREFIX}]`)
+    return
+  }
+
   if (PREFIX && !logGroupName.startsWith(PREFIX)) {
     console.log(`ignored the log group [${logGroupName}] because it doesn't match the prefix [${PREFIX}]`)
-  } else {
-    await subscribe(logGroupName)
+    return
   }
+
+  await subscribe(logGroupName)
 }
 
 const subscribe = async (logGroupName) => {

@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'automation']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.0.4
+    SemanticVersion: 1.1.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Resources:
@@ -27,6 +27,8 @@ Resources:
         Variables:
           PREFIX:
             Ref: Prefix
+          EXCLUDE_PREFIX:
+            Ref: ExcludePrefix
           DESTINATION_ARN:
             Ref: DestinationArn
           FILTER_NAME:
@@ -77,6 +79,8 @@ Resources:
         Variables:
           PREFIX:
             Ref: Prefix
+          EXCLUDE_PREFIX:
+            Ref: ExcludePrefix
           DESTINATION_ARN:
             Ref: DestinationArn
           FILTER_NAME:
@@ -155,3 +159,9 @@ Parameters:
     Default: '[timestamp=*Z, request_id="*-*", event]'
     Description: >
       (Optional) if specified, will override the filter pattern used to create the subscription.
+  ExcludePrefix:
+    Type: String
+    Default: ''
+    Description: >
+      (Optional) if specified then log groups that match the prefix will not be subscribed.
+      E.g. '/aws/lambda/my-function-' will exclude Lambda function logs for functions that start with 'my-function-'

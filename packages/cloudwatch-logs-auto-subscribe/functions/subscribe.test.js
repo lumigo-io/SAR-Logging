@@ -12,6 +12,7 @@ AWS.Lambda.prototype.addPermission = mockAddPermission
 const destinationArn = 'arn:aws:lambda:us-east-1:123456789:function:boohoo'
 
 process.env.PREFIX = '/aws/lambda/'
+process.env.EXCLUDE_PREFIX = '/aws/lambda/exclude'
 process.env.DESTINATION_ARN = destinationArn
 
 beforeEach(() => {
@@ -89,18 +90,47 @@ describe('new log group', () => {
       expect(mockPutSubscriptionFilter).toBeCalled()
     })
   })
+
+  describe('exclude prefix', () => {
+    test('should ignore groups that match the exclude prefix', async () => {
+      const event = {
+        detail: {
+          requestParameters: {
+            logGroupName: '/aws/lambda/exclude-me'
+          }
+        }
+      }
+      await handler(event)
+
+      expect(mockPutSubscriptionFilter).not.toBeCalled()
+    })
+  })
 })
 
 describe('existing log group', () => {
   const handler = require('./subscribe').existingLogGroups
 
-  test.only('should replace filters that are different', async () => {
+  test('should replace filters that are different', async () => {
     givenDescribeLogGroupsReturns(['/aws/lambda/group1', '/aws/lambda/group2'], true)
     givenDescribeLogGroupsReturns(['/aws/lambda/group3'])
 
     givenDescribeFiltersReturns(destinationArn) // group1 (ignored)
     givenDescribeFiltersReturns('some-other-arn') // group2 (replaced)
     givenDescribeFiltersReturns() // group3 (replaced)
+
+    await handler()
+
+    expect(mockPutSubscriptionFilter).toBeCalledTimes(2)
+  })
+
+  test('should ignore groups that match the exclude prefix', async () => {
+    givenDescribeLogGroupsReturns(['/aws/lambda/group1', '/aws/lambda/group2'], true)
+    givenDescribeLogGroupsReturns(['/aws/lambda/exclude1', '/aws/lambda/exclude2'])
+
+    givenDescribeFiltersReturns('some-other-arn') // group1 (replaced)
+    givenDescribeFiltersReturns('some-other-arn') // group2 (replaced)
+    givenDescribeFiltersReturns('some-other-arn') // exclude1 (ignored)
+    givenDescribeFiltersReturns('some-other-arn') // exclude2 (ignored)
 
     await handler()
 
