@@ -8,6 +8,8 @@ Subscribes new and existing CloudWatch log groups to Lambda/Kinesis/Firehose by 
 
 `Prefix`: (Optional) if specified then only log groups with the prefix will be subscribed. E.g. '/aws/lambda/' will subscribe only Lambda function logs
 
+`ExcludePrefix`: (Optional) if specified then log groups that match the prefix will not be subscribed. E.g. '/aws/lambda/my-function-' will exclude Lambda function logs for functions that start with 'my-function-'.
+
 `FilterName`: (Optional) if specified, will override the filter name for the subscription.
 
 `FilterPattern`: (Optional) if specified, will override the filter pattern used to create the subscription.
