@@ -18,6 +18,7 @@ jobs:
     working_directory: ~/repo
     steps:
       - checkout
+      - run: pip install awscli
       - run: pip install aws-sam-cli
       - run: npm ci
       - run: npm run install
