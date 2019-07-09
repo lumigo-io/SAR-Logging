@@ -10,6 +10,7 @@ jobs:
     <<: *defaults
     steps:
       - checkout
+      - run: npm ci
       - run: npm run install
       - run: npm run test:lint
       - run: npm run test
