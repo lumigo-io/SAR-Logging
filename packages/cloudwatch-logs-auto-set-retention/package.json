@@ -12,7 +12,7 @@
     "author": "Yan Cui",
     "license": "MIT",
     "devDependencies": {
-        "jest": "^24.5.0"
+        "jest": "^24.8.0"
     },
     "dependencies": {
         "aws-sdk": "^2.420.0"
