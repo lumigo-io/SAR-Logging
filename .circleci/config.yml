@@ -1,9 +1,9 @@
 version: 2
 
 defaults: &defaults
-  working_directory: ~/repo
   docker:
     - image: circleci/node:10.16.0
+  working_directory: ~/repo
 
 jobs:
   build:
@@ -14,6 +14,14 @@ jobs:
       - run: npm run install
       - run: npm run test:lint
       - run: npm run test
+
+  install_sam:
+    docker:
+      - image: circleci/python:2.7-jessie
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - run: pip install --user aws-sam-cli
 
   deploy:
     <<: *defaults
@@ -39,9 +47,12 @@ workflows:
           filters:
             branches:
               only: master
-      - deploy:
+      - install_sam:
           requires:
             - build
+      - deploy:
+          requires:
+            - install_sam
           filters:
             branches:
               only: master
