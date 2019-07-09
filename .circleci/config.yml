@@ -18,6 +18,9 @@ jobs:
   deploy:
     <<: *defaults
     steps:
+      - checkout
+      - run: npm ci
+      - run: npm run install
       - run: npm run package
       - run: npm run publish
 
