@@ -15,9 +15,17 @@ module.exports.existingLogGroups = async () => {
 			nextToken: nextToken
 		};
 		const resp = await cloudWatchLogs.describeLogGroups(req).promise();
-		const logGroups = resp.logGroups.filter(x =>
-			!x.logGroupName.startsWith(EXCLUDE_PREFIX) &&
-      x.logGroupName.startsWith(PREFIX));
+		const logGroups = resp.logGroups.filter(x => {
+			if (PREFIX && !x.logGroupName.startsWith(PREFIX)) {
+				return false;
+			}
+
+			if (EXCLUDE_PREFIX && x.logGroupName.startsWith(EXCLUDE_PREFIX)) {
+				return false;
+			}
+
+			return true;
+		});
 
 		for (const { logGroupName } of logGroups) {
 			const subFilterReq = {

@@ -7,6 +7,8 @@ AWS.CloudWatchLogs.prototype.describeLogGroups = mockDescribeLogGroups;
 
 process.env.RETENTION_DAYS = 7;
 
+console.log = jest.fn();
+
 beforeEach(() => {
 	mockPutRetentionPolicy.mockReturnValue({
 		promise: () => Promise.resolve()

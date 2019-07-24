@@ -11,11 +11,13 @@ AWS.Lambda.prototype.addPermission = mockAddPermission;
 
 const destinationArn = "arn:aws:lambda:us-east-1:123456789:function:boohoo";
 
-process.env.PREFIX = "/aws/lambda/";
-process.env.EXCLUDE_PREFIX = "/aws/lambda/exclude";
-process.env.DESTINATION_ARN = destinationArn;
+console.log = jest.fn();
 
 beforeEach(() => {
+	process.env.PREFIX = "/aws/lambda/";
+	process.env.EXCLUDE_PREFIX = "/aws/lambda/exclude";
+	process.env.DESTINATION_ARN = destinationArn;
+
 	mockPutSubscriptionFilter.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
@@ -39,10 +41,10 @@ describe("new log group", () => {
 			}
 		}
 	};
-	const handler = require("./subscribe").newLogGroups;
 
 	describe("prefix", () => {
 		test("log group is subscribed if it matches prefix", async () => {
+			const handler = require("./subscribe").newLogGroups;
 			await handler(event);
 
 			expect(mockPutSubscriptionFilter).toBeCalled();
@@ -56,6 +58,7 @@ describe("new log group", () => {
 					}
 				}
 			};
+			const handler = require("./subscribe").newLogGroups;
 			await handler(event);
 
 			expect(mockPutSubscriptionFilter).not.toBeCalled();
@@ -74,6 +77,7 @@ describe("new log group", () => {
 				promise: () => Promise.resolve()
 			});
 
+			const handler = require("./subscribe").newLogGroups;
 			await handler(event);
 
 			expect(mockAddPermission).toBeCalled();
@@ -85,6 +89,7 @@ describe("new log group", () => {
 		test("it should not handle other errors", async () => {
 			givenPutFilterFailsWith("boo", "hoo");
 
+			const handler = require("./subscribe").newLogGroups;
 			await expect(handler(event)).rejects.toThrow();
 
 			expect(mockPutSubscriptionFilter).toBeCalled();
@@ -100,6 +105,8 @@ describe("new log group", () => {
 					}
 				}
 			};
+      
+			const handler = require("./subscribe").newLogGroups;
 			await handler(event);
 
 			expect(mockPutSubscriptionFilter).not.toBeCalled();
@@ -108,8 +115,6 @@ describe("new log group", () => {
 });
 
 describe("existing log group", () => {
-	const handler = require("./subscribe").existingLogGroups;
-
 	test("should replace filters that are different", async () => {
 		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
 		givenDescribeLogGroupsReturns(["/aws/lambda/group3"]);
@@ -118,6 +123,7 @@ describe("existing log group", () => {
 		givenDescribeFiltersReturns("some-other-arn"); // group2 (replaced)
 		givenDescribeFiltersReturns(); // group3 (replaced)
 
+		const handler = require("./subscribe").existingLogGroups;
 		await handler();
 
 		expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
@@ -132,6 +138,22 @@ describe("existing log group", () => {
 		givenDescribeFiltersReturns("some-other-arn"); // exclude1 (ignored)
 		givenDescribeFiltersReturns("some-other-arn"); // exclude2 (ignored)
 
+		const handler = require("./subscribe").existingLogGroups;
+		await handler();
+
+		expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
+	});
+  
+	test("when there are no prefix nor suffix, everything is subscribed", async () => {
+		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"]);
+    
+		givenDescribeFiltersReturns(); // group1 (replaced)
+		givenDescribeFiltersReturns(); // group2 (replaced)
+    
+		delete process.env.PREFIX;
+		delete process.env.EXCLUDE_PREFIX;
+    
+		const handler = require("./subscribe").existingLogGroups;
 		await handler();
 
 		expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
