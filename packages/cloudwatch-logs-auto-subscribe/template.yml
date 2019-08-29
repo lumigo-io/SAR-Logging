@@ -148,7 +148,8 @@ Parameters:
     Default: ''
     Description: >
       (Optional) if specified then only log groups with one of these tags would be subscribed.
-      e.g. 'tag1,tag2,tag3'
+      e.g. 'tag1=value1,tag2,tag3' would match log groups with the 'tag1' tag whose value is 'value1',
+      or log groups who just have the tags 'tag2' or 'tag3' regardless of their values
   FilterName:
     Type: String
     Default: 'ship-logs'

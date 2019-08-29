@@ -48,10 +48,24 @@ const filter = async (logGroupName) => {
 		return false;
 	}
   
-	const requiredTags = (process.env.TAGS || "").split(",").filter(x => x.length > 0);  
-	if (requiredTags.length > 0) {
+	const hasRequiredTags = (process.env.TAGS || "")
+		.split(",")
+		.filter(x => x.length > 0)
+		.map(tag => {
+			const segments = tag.split("=");
+
+			// e.g. tag1=value1
+			if (segments.length === 2) {
+				const [tagName, tagValue] = segments;
+				return (tags) => tags[tagName] === tagValue;
+			} else { // e.g tag2
+				const [tagName] = segments;
+				return (tags) => tags[tagName];
+			}
+		});
+	if (hasRequiredTags.length > 0) {
 		const logGroupTags = await cloudWatchLogs.getTags(logGroupName);
-		const matchedTag = logGroupTags.find(x => requiredTags.includes(x));
+		const matchedTag = hasRequiredTags.find(f => f(logGroupTags));
 		if (!matchedTag) {
 			console.log(`ignored the log group [${logGroupName}] because it doesn't have any of the required tags [${process.env.TAGS}]`);
 			return false;

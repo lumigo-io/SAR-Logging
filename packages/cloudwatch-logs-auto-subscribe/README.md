@@ -20,6 +20,7 @@ AutoSubscribeLogGroups:
     Parameters:
       DestinationArn: <ARN to Lambda/Kinesis>
       Prefix: <optional, used to target log groups>
+      Tags: <optional, used to target log groups>
       ExcludePrefix: <optional, used to target log groups>
       FilterName: <defaults to ship-logs>
       FilterPattern: <defaults to [timestamp=*Z, request_id="*-*", event]>
@@ -37,9 +38,11 @@ For more details, read this [post](https://theburningmonk.com/2019/05/how-to-inc
 
 `DestinationArn`: The ARN of the Lambda function or Kinesis stream to subscribe a newly created CloudWatch log group to.
 
-`Prefix`: (Optional) if specified then only log groups with the prefix will be subscribed. E.g. '/aws/lambda/' will subscribe only Lambda function logs
+`Prefix`: (Optional) if specified then only log groups with the prefix will be subscribed. E.g. `/aws/lambda/` will subscribe only Lambda function logs.
 
-`ExcludePrefix`: (Optional) if specified then log groups that match the prefix will not be subscribed. E.g. '/aws/lambda/my-function-' will exclude Lambda function logs for functions that start with 'my-function-'.
+`Tags`: (Optional) if specified then only log groups with one of these tags would be subscribed. E.g. `tag1=value1,tag2,tag3` would match log groups with the `tag1` tag whose value is `value1`, or log groups who just have the tags `tag2` or `tag3` regardless of their values.
+
+`ExcludePrefix`: (Optional) if specified then log groups that match the prefix will not be subscribed. E.g. `/aws/lambda/my-function-` will exclude Lambda function logs for functions that start with `my-function-`.
 
 `FilterName`: (Optional) if specified, will override the filter name for the subscription.
 

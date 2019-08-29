@@ -32,7 +32,10 @@ beforeEach(() => {
   
 	mockListTagsLogGroup.mockReturnValueOnce({
 		promise: () => Promise.resolve({
-			tags: ["tag1", "tag2"]
+			tags: {
+				tag1: "value1",
+				tag2: "value2"
+			}
 		})
 	});
 });
@@ -95,8 +98,26 @@ describe("new log group", () => {
 			expect(mockListTagsLogGroup).toBeCalled();
 		});
     
+		test("log group is subscribed if it contains at least one matching tag AND value", async () => {
+			givenTagsIsDefined("tag2=value2,tag3");
+			const handler = require("./subscribe").newLogGroups;
+			await handler(getEvent());
+
+			expect(mockPutSubscriptionFilter).toBeCalled();
+			expect(mockListTagsLogGroup).toBeCalled();
+		});
+    
 		test("log group is not subscribed if it doesn't contain any matching tag", async () => {
 			givenTagsIsDefined("tag3,tag4");
+			const handler = require("./subscribe").newLogGroups;
+			await handler(getEvent());
+
+			expect(mockPutSubscriptionFilter).not.toBeCalled();
+			expect(mockListTagsLogGroup).toBeCalled();
+		});
+    
+		test("log group is not subscribed if its tag value doesn't match", async () => {
+			givenTagsIsDefined("tag1=value2");
 			const handler = require("./subscribe").newLogGroups;
 			await handler(getEvent());
 
