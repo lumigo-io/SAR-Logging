@@ -1,58 +1,26 @@
-const AWS = require("aws-sdk");
-const cloudWatchLogs = new AWS.CloudWatchLogs();
-const lambda = new AWS.Lambda();
-const uuid = require("uuid/v4");
+const lambda = require("./lib/lambda");
+const cloudWatchLogs = require("./lib/cloudwatch-logs");
 
-const { PREFIX, EXCLUDE_PREFIX, DESTINATION_ARN, FILTER_NAME, FILTER_PATTERN, ROLE_ARN } = process.env;
-const isLambda = DESTINATION_ARN.startsWith("arn:aws:lambda");
-
-const filterName = FILTER_NAME || "ship-logs";
-const filterPattern = FILTER_PATTERN || "";
+const { DESTINATION_ARN } = process.env;
 
 module.exports.existingLogGroups = async () => {
-	const loop = async (nextToken) => {
-		const req = {
-			nextToken: nextToken
-		};
-		const resp = await cloudWatchLogs.describeLogGroups(req).promise();
-		const logGroups = resp.logGroups.filter(x => {
-			if (PREFIX && !x.logGroupName.startsWith(PREFIX)) {
-				return false;
-			}
-
-			if (EXCLUDE_PREFIX && x.logGroupName.startsWith(EXCLUDE_PREFIX)) {
-				return false;
-			}
-
-			return true;
-		});
-
-		for (const { logGroupName } of logGroups) {
-			const subFilterReq = {
-				logGroupName: logGroupName
-			};
-			const subFilterResp = await cloudWatchLogs.describeSubscriptionFilters(subFilterReq).promise();
-
-			if (subFilterResp.subscriptionFilters.length === 0) {
+	const logGroupNames = await cloudWatchLogs.getLogGroups();
+	for (const logGroupName of logGroupNames) {
+		if (await filter(logGroupName)) {
+			const destinationArn = await cloudWatchLogs.getSubscriptionFilter(logGroupName);
+			if (!destinationArn) {
 				console.log(`[${logGroupName}] doesn't have a filter yet`);
-
+        
 				// swallow exception so we can move onto the next log group
 				await subscribe(logGroupName).catch(() => {});
-			} else if (subFilterResp.subscriptionFilters[0].destinationArn !== DESTINATION_ARN) {
-				const oldDestArn = subFilterResp.subscriptionFilters[0].destinationArn;
-				console.log(`[${logGroupName}] has an old destination ARN [${oldDestArn}], updating...`);
-
+			} else if (destinationArn !== DESTINATION_ARN) {
+				console.log(`[${logGroupName}] has an old destination ARN [${destinationArn}], updating...`);
+        
 				// swallow exception so we can move onto the next log group
 				await subscribe(logGroupName).catch(console.error);
 			}
 		}
-
-		if (resp.nextToken) {
-			await loop(resp.nextToken);
-		}
-	};
-
-	await loop();
+	}
 };
 
 module.exports.newLogGroups = async (event) => {
@@ -60,24 +28,42 @@ module.exports.newLogGroups = async (event) => {
 
 	// eg. /aws/lambda/logging-demo-dev-api
 	const logGroupName = event.detail.requestParameters.logGroupName;
+	if (await filter(logGroupName)) {
+		await subscribe(logGroupName);
+	}
+};
+
+const filter = async (logGroupName) => {
 	console.log(`log group: ${logGroupName}`);
+  
+	const { PREFIX, EXCLUDE_PREFIX } = process.env;
 
 	if (EXCLUDE_PREFIX && logGroupName.startsWith(EXCLUDE_PREFIX)) {
 		console.log(`ignored the log group [${logGroupName}] because it matches the exclude prefix [${EXCLUDE_PREFIX}]`);
-		return;
+		return false;
 	}
 
 	if (PREFIX && !logGroupName.startsWith(PREFIX)) {
 		console.log(`ignored the log group [${logGroupName}] because it doesn't match the prefix [${PREFIX}]`);
-		return;
+		return false;
+	}
+  
+	const requiredTags = (process.env.TAGS || "").split(",").filter(x => x.length > 0);  
+	if (requiredTags.length > 0) {
+		const logGroupTags = await cloudWatchLogs.getTags(logGroupName);
+		const matchedTag = logGroupTags.find(x => requiredTags.includes(x));
+		if (!matchedTag) {
+			console.log(`ignored the log group [${logGroupName}] because it doesn't have any of the required tags [${process.env.TAGS}]`);
+			return false;
+		}
 	}
 
-	await subscribe(logGroupName);
+	return true;
 };
 
 const subscribe = async (logGroupName) => {
 	try {
-		await putSubscriptionFilter(logGroupName);
+		await cloudWatchLogs.putSubscriptionFilter(logGroupName);
 	} catch (err) {
 		console.log(err);
 
@@ -86,41 +72,12 @@ const subscribe = async (logGroupName) => {
 		if (err.code === "InvalidParameterException" &&
         err.message === "Could not execute the lambda function. Make sure you have given CloudWatch Logs permission to execute your function.") {
 			console.log(`adding lambda:InvokeFunction permission to CloudWatch Logs for [${DESTINATION_ARN}]`);
-			await addLambdaPermission(DESTINATION_ARN);
+			await lambda.addLambdaPermission(DESTINATION_ARN);
 
 			// retry!
-			await putSubscriptionFilter(logGroupName);
+			await cloudWatchLogs.putSubscriptionFilter(logGroupName);
 		} else {
 			throw err;
 		}
 	}
-};
-
-const putSubscriptionFilter = async (logGroupName) => {
-	// when subscribing a stream to Kinesis/Firehose, you need to specify the roleArn
-	const roleArn = !isLambda ? ROLE_ARN : undefined;
-
-	const req = {
-		destinationArn: DESTINATION_ARN,
-		logGroupName: logGroupName,
-		filterName: filterName,
-		filterPattern: filterPattern,
-		roleArn: roleArn
-	};
-
-	console.log(JSON.stringify(req));
-
-	await cloudWatchLogs.putSubscriptionFilter(req).promise();
-
-	console.log(`subscribed [${logGroupName}] to [${DESTINATION_ARN}]`);
-};
-
-const addLambdaPermission = async (functionArn) => {
-	const req = {
-		Action: "lambda:InvokeFunction",
-		FunctionName: functionArn,
-		Principal: "logs.amazonaws.com",
-		StatementId: `invoke-${uuid().substring(0, 8)}`
-	};
-	await lambda.addPermission(req).promise();
 };

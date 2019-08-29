@@ -11,8 +11,31 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'automation']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.1.3
+    SemanticVersion: 1.2.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
+
+Globals:
+  Function:
+    Runtime: nodejs8.10
+    MemorySize: 128
+    Environment:
+      Variables:
+        PREFIX:
+          Ref: Prefix
+        TAGS:
+          Ref: Tags
+        EXCLUDE_PREFIX:
+          Ref: ExcludePrefix
+        DESTINATION_ARN:
+          Ref: DestinationArn
+        FILTER_NAME:
+          Ref: FilterName
+        FILTER_PATTERN:
+          Ref: FilterPattern
+        ROLE_ARN:
+          Fn::GetAtt:
+            - CloudWatchToKinesisRole
+            - Arn
 
 Resources:
   SubscribeNewLogGroups:
@@ -21,32 +44,18 @@ Resources:
       Handler: functions/subscribe.newLogGroups
       Runtime: nodejs8.10
       Description: Subscribes a newly create CloudWatch log group to the specified ARN
-      MemorySize: 128
       Timeout: 6
-      Environment:
-        Variables:
-          PREFIX:
-            Ref: Prefix
-          EXCLUDE_PREFIX:
-            Ref: ExcludePrefix
-          DESTINATION_ARN:
-            Ref: DestinationArn
-          FILTER_NAME:
-            Ref: FilterName
-          FILTER_PATTERN:
-            Ref: FilterPattern
-          ROLE_ARN:
-            Fn::GetAtt:
-              - CloudWatchToKinesisRole
-              - Arn
       Policies:
         - Statement:
             Effect: Allow
-            Action: logs:PutSubscriptionFilter
+            Action: 
+              - logs:PutSubscriptionFilter
+              - logs:ListTagsLogGroup
             Resource: '*'
         - Statement:
             Effect: Allow
-            Action: lambda:AddPermission
+            Action:
+              - lambda:AddPermission
             Resource: '*'
         - Statement: # required for subscribing to a Kinesis stream
             Effect: Allow
@@ -73,35 +82,20 @@ Resources:
       Handler: functions/subscribe.existingLogGroups
       Runtime: nodejs8.10
       Description: Subscribes existing log groups to the specified destination ARN.
-      MemorySize: 128
       Timeout: 900
-      Environment:
-        Variables:
-          PREFIX:
-            Ref: Prefix
-          EXCLUDE_PREFIX:
-            Ref: ExcludePrefix
-          DESTINATION_ARN:
-            Ref: DestinationArn
-          FILTER_NAME:
-            Ref: FilterName
-          FILTER_PATTERN:
-            Ref: FilterPattern
-          ROLE_ARN:
-            Fn::GetAtt:
-              - CloudWatchToKinesisRole
-              - Arn
       Policies:
         - Statement:
             Effect: Allow
             Action: 
               - logs:PutSubscriptionFilter
               - logs:DescribeLogGroups
-              - logs:describeSubscriptionFilters
+              - logs:DescribeSubscriptionFilters
+              - logs:ListTagsLogGroup
             Resource: '*'
         - Statement:
             Effect: Allow
-            Action: lambda:AddPermission
+            Action:
+              - lambda:AddPermission
             Resource: '*'
         - Statement: # required for subscribing to a Kinesis stream
             Effect: Allow
@@ -149,6 +143,12 @@ Parameters:
     Description: >
       (Optional) if specified then only log groups with the prefix will be subscribed. 
       E.g. '/aws/lambda/' will subscribe only Lambda function logs
+  Tags:
+    Type: String
+    Default: ''
+    Description: >
+      (Optional) if specified then only log groups with one of these tags would be subscribed.
+      e.g. 'tag1,tag2,tag3'
   FilterName:
     Type: String
     Default: 'ship-logs'
