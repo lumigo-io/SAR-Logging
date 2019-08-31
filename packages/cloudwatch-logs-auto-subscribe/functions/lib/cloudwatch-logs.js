@@ -1,7 +1,7 @@
 const AWS = require("./aws");
 const cloudWatchLogs = new AWS.CloudWatchLogs();
 
-const { DESTINATION_ARN, FILTER_NAME, FILTER_PATTERN, ROLE_ARN } = process.env;
+const { PREFIX, DESTINATION_ARN, FILTER_NAME, FILTER_PATTERN, ROLE_ARN } = process.env;
 const isLambda = DESTINATION_ARN.startsWith("arn:aws:lambda");
 const filterName = FILTER_NAME || "ship-logs";
 const filterPattern = FILTER_PATTERN || "";
@@ -47,7 +47,8 @@ const putSubscriptionFilter = async (logGroupName) => {
 const getLogGroups = async () => {
 	const loop = async (nextToken, acc = []) => {
 		const req = {
-			nextToken: nextToken
+			nextToken: nextToken,
+			logGroupNamePrefix: PREFIX
 		};
     
 		try {
