@@ -36,13 +36,13 @@ Globals:
           Fn::GetAtt:
             - CloudWatchToKinesisRole
             - Arn
+        LOG_LEVEL: INFO
 
 Resources:
   SubscribeNewLogGroups:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/subscribe.newLogGroups
-      Runtime: nodejs8.10
       Description: Subscribes a newly create CloudWatch log group to the specified ARN
       Timeout: 6
       Policies:
@@ -80,9 +80,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: functions/subscribe.existingLogGroups
-      Runtime: nodejs8.10
       Description: Subscribes existing log groups to the specified destination ARN.
-      Timeout: 900
+      Timeout: 840
       Policies:
         - Statement:
             Effect: Allow
@@ -101,11 +100,6 @@ Resources:
             Effect: Allow
             Action: iam:PassRole
             Resource: '*'
-      Events:
-        ScheduledEvent:
-          Type: Schedule
-          Properties:
-            Schedule: rate(1 hour)
 
   CloudWatchToKinesisRole:
     Type: AWS::IAM::Role
@@ -131,6 +125,28 @@ Resources:
                   - kinesis:put*
                   - firehose:put*
                 Resource: '*'
+
+  LambdaInvocationCustomResource:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/lambda-invocation.handler
+      Timeout: 900
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !GetAtt SubscribeExistingLogGroups.Arn
+
+  # custom resource to invoke the SubscribeExistingLogGroups function during deployment
+  InvokeSubscribeExistingLogGroups:
+    Type: Custom::LambdaInvocation
+    DependsOn:
+      - SubscribeExistingLogGroups
+      - LambdaInvocationCustomResource
+    Properties:
+      ServiceToken: !GetAtt LambdaInvocationCustomResource.Arn
+      FunctionName: !Ref SubscribeExistingLogGroups
+      Payload: {}
 
 Parameters:
   DestinationArn:

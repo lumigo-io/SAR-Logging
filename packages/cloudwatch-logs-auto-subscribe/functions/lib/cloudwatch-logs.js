@@ -1,5 +1,6 @@
 const AWS = require("./aws");
 const cloudWatchLogs = new AWS.CloudWatchLogs();
+const log = require("@dazn/lambda-powertools-logger");
 
 const { DESTINATION_ARN, FILTER_NAME, FILTER_PATTERN, ROLE_ARN } = process.env;
 const isLambda = DESTINATION_ARN.startsWith("arn:aws:lambda");
@@ -37,11 +38,14 @@ const putSubscriptionFilter = async (logGroupName) => {
 		roleArn: roleArn
 	};
 
-	console.log(JSON.stringify(req));
+	log.debug(JSON.stringify(req));
 
 	await cloudWatchLogs.putSubscriptionFilter(req).promise();
 
-	console.log(`subscribed [${logGroupName}] to [${DESTINATION_ARN}]`);
+	log.info(`subscribed log group to [${DESTINATION_ARN}]`, {
+		logGroupName,
+		arn: DESTINATION_ARN
+	});
 };
 
 const getLogGroups = async () => {
@@ -61,7 +65,7 @@ const getLogGroups = async () => {
 				return newAcc;
 			}
 		} catch (error) {
-			console.error(`failed to fetch log groups, processing the fetched groups [${acc.length}] so far`, error);
+			log.error(`failed to fetch log groups, processing the fetched groups [${acc.length}] so far`, error);
 			return acc; 
 		}
 	};
