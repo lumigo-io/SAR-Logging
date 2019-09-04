@@ -11,6 +11,7 @@ jobs:
       - run: npm run install
       - run: npm run test:lint
       - run: npm run test
+      - run: npm run codecov
 
   deploy:
     docker:
