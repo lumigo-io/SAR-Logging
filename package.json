@@ -5,6 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "codecov": "codecov",
     "install": "lerna bootstrap",
     "test": "lerna run --concurrency 2 test -- -- --config=../../jest.config.js",
     "test:lint": "eslint .",
@@ -12,10 +13,11 @@
     "publish": "lerna run publish"
   },
   "author": "Yan Cui",
-  "license": "MIT",
+  "license": "Apache 2",
   "devDependencies": {
     "@commitlint/cli": "^8.1.0",
     "@commitlint/config-conventional": "^8.0.0",
+    "codecov": "^3.5.0",
     "coveralls": "^3.0.2",
     "eslint": "5.16.0",
     "eslint-config-prettier": "^6.0.0",
