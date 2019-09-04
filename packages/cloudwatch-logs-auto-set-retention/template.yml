@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.0.2
+    SemanticVersion: 1.1.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Resources:
@@ -66,11 +66,24 @@ Resources:
               - logs:PutRetentionPolicy
               - logs:DescribeLogGroups
             Resource: '*'
-      Events:
-        ScheduledEvent:
-          Type: Schedule
-          Properties:
-            Schedule: rate(1 hour)
+
+  LambdaInvocationCustomResource:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/lambda-invocation-cfn-custom-resource
+        SemanticVersion: 1.0.1
+
+  # custom resource to invoke the SubscribeExistingLogGroups function during deployment
+  InvokeSetRetentionForExistingLogGroups:
+    Type: Custom::LambdaInvocation
+    DependsOn:
+      - SetRetentionForExistingLogGroups
+      - LambdaInvocationCustomResource
+    Properties:
+      ServiceToken: !GetAtt LambdaInvocationCustomResource.Arn
+      FunctionName: !Ref SetRetentionForExistingLogGroups
+      Payload: {}
 
 Parameters:
   RetentionDays:
