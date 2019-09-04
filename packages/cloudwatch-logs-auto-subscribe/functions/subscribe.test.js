@@ -15,6 +15,8 @@ const destinationArn = "arn:aws:lambda:us-east-1:123456789:function:boohoo";
 
 console.log = jest.fn();
 
+jest.setTimeout(10000);
+
 beforeEach(() => {
 	process.env.DESTINATION_ARN = destinationArn;
 
@@ -44,7 +46,7 @@ afterEach(() => {
 	mockPutSubscriptionFilter.mockClear();
 	mockDescribeLogGroups.mockClear();
 	mockDescribeSubscriptionFilters.mockClear();
-	mockListTagsLogGroup.mockClear();
+	mockListTagsLogGroup.mockClear();  
 });
 
 const givenPrefixIsDefined = () => process.env.PREFIX = "/aws/lambda/";
@@ -156,8 +158,8 @@ describe("new log group", () => {
 		});
 	});
 
-	describe("other errors", () => {
-		test("it should not handle other errors", async () => {
+	describe("error handling", () => {
+		test("it should not handle any errors", async () => {
 			givenPutFilterFailsWith("boo", "hoo");
 
 			const handler = require("./subscribe").newLogGroups;
@@ -184,7 +186,6 @@ describe("existing log group", () => {
 		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
 		givenDescribeLogGroupsReturns(["/aws/lambda/group3"]);
 
-		mockDescribeSubscriptionFilters.mockClear();
 		givenDescribeFiltersReturns(destinationArn); // group1 (ignored)
 		givenDescribeFiltersReturns("some-other-arn"); // group2 (replaced)
 		givenDescribeFiltersReturns(); // group3 (replaced)
@@ -201,7 +202,6 @@ describe("existing log group", () => {
 		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
 		givenDescribeLogGroupsReturns(["/aws/lambda/exclude1", "/aws/lambda/exclude2"]);
 
-		mockDescribeSubscriptionFilters.mockClear();
 		givenDescribeFiltersReturns("some-other-arn"); // group1 (replaced)
 		givenDescribeFiltersReturns("some-other-arn"); // group2 (replaced)
 		givenDescribeFiltersReturns("some-other-arn"); // exclude1 (ignored)
@@ -219,7 +219,6 @@ describe("existing log group", () => {
 		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
 		givenDescribeLogGroupsReturns(["/api/gateway/group1", "/api/gateway/group2"]);
 
-		mockDescribeSubscriptionFilters.mockClear();
 		givenDescribeFiltersReturns("some-other-arn"); // group1 (replaced)
 		givenDescribeFiltersReturns("some-other-arn"); // group2 (replaced)
 		givenDescribeFiltersReturns("some-other-arn"); // exclude1 (ignored)
@@ -244,7 +243,6 @@ describe("existing log group", () => {
 		givenListTagsReturns("tag1");         // api group1 (ignored)
 		givenListTagsReturns();               // api group2 (ignored)
 
-		mockDescribeSubscriptionFilters.mockClear();
 		givenDescribeFiltersReturns("some-other-arn"); // group1 (replaced)
 		givenDescribeFiltersReturns("some-other-arn"); // group2 (replaced)
 		givenDescribeFiltersReturns("some-other-arn"); // exclude1 (ignored)
@@ -259,7 +257,6 @@ describe("existing log group", () => {
 	test("when there are no prefix nor suffix, everything is subscribed", async () => {
 		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"]);
     
-		mockDescribeSubscriptionFilters.mockClear();
 		givenDescribeFiltersReturns(); // group1 (replaced)
 		givenDescribeFiltersReturns(); // group2 (replaced)
     
@@ -268,10 +265,26 @@ describe("existing log group", () => {
 
 		expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
 	});
+  
+	test("it should retry errors when listing log groups", async () => {
+		givenDescribeLogGroupsFailsWith("ThrottlingException", "Rate exceeded");
+		givenDescribeLogGroupsReturns([]);
+
+		const handler = require("./subscribe").existingLogGroups;
+		await handler();
+
+		expect(mockDescribeLogGroups).toBeCalledTimes(2);
+	});
 });
 
 const givenPutFilterFailsWith = (code, message) => {
 	mockPutSubscriptionFilter.mockReturnValueOnce({
+		promise: () => Promise.reject(new AwsError(code, message))
+	});
+};
+
+const givenDescribeLogGroupsFailsWith = (code, message) => {
+	mockDescribeLogGroups.mockReturnValueOnce({
 		promise: () => Promise.reject(new AwsError(code, message))
 	});
 };
