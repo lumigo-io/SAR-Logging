@@ -6,10 +6,10 @@ Metadata:
     Name: auto-subscribe-log-group-to-arn
     Description: Subscribes new and existing CloudWatch log groups to Lambda/Kinesis/Firehose by ARN.
     Author: Lumigo
-    SpdxLicenseId: MIT
+    SpdxLicenseId: Apache-2.0
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
-    Labels: ['cloudwatch', 'logs', 'ops', 'automation']
+    Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
     SemanticVersion: 1.4.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
@@ -127,15 +127,11 @@ Resources:
                 Resource: '*'
 
   LambdaInvocationCustomResource:
-    Type: AWS::Serverless::Function
+    Type: AWS::Serverless::Application
     Properties:
-      Handler: functions/lambda-invocation.handler
-      Timeout: 900
-      Policies:
-        - Statement:
-            Effect: Allow
-            Action: lambda:InvokeFunction
-            Resource: !GetAtt SubscribeExistingLogGroups.Arn
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/lambda-invocation-cfn-custom-resource
+        SemanticVersion: 1.0.1
 
   # custom resource to invoke the SubscribeExistingLogGroups function during deployment
   InvokeSubscribeExistingLogGroups:
