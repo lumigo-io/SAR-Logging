@@ -140,7 +140,7 @@ Resources:
       - SubscribeExistingLogGroups
       - LambdaInvocationCustomResource
     Properties:
-      ServiceToken: !GetAtt LambdaInvocationCustomResource.Arn
+      ServiceToken: !GetAtt LambdaInvocationCustomResource.Outputs.FunctionArn
       FunctionName: !Ref SubscribeExistingLogGroups
       Payload: {}
 
