@@ -87,13 +87,20 @@ const filter = async (logGroupName) => {
 				return (tags) => tags[tagName];
 			}
 		});
+    
 	if (hasRequiredTags.length > 0) {
 		const logGroupTags = await cloudWatchLogs.getTags(logGroupName);
-		const matchedTag = hasRequiredTags.find(f => f(logGroupTags));
-		if (!matchedTag) {
-			log.debug(`ignored [${logGroupName}] because it doesn't have any of the required tags`, {
+		const isMatched =
+      process.env.TAGS_MODE === "AND"
+      	? hasRequiredTags.every(f => f(logGroupTags))
+      	: hasRequiredTags.some(f => f(logGroupTags));
+
+		if (!isMatched) {
+			log.debug(`ignored [${logGroupName}] because it doesn't have the right tags`, {
 				logGroupName,
-				tags: process.env.TAGS
+				logGroupTags,
+				tags: process.env.TAGS,
+				mode: process.env.TAGS_MODE
 			});
 			return false;
 		}

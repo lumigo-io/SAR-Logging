@@ -21,6 +21,7 @@ beforeEach(() => {
 	process.env.RETRY_MIN_TIMEOUT = "100";
 	process.env.RETRY_MAX_TIMEOUT = "100";
 	process.env.FILTER_NAME = "ship-logs";
+	process.env.TAGS_MODE = "OR";
 
 	process.env.DESTINATION_ARN = destinationArn;
 
@@ -102,23 +103,71 @@ describe("new log group", () => {
 				})
 			});
 		});
-
-		test("log group is subscribed if it contains at least one matching tag", async () => {
-			givenTagsIsDefined("tag2,tag3");
-			const handler = require("./subscribe").newLogGroups;
-			await handler(getEvent());
-
-			expect(mockPutSubscriptionFilter).toBeCalled();
-			expect(mockListTagsLogGroup).toBeCalled();
-		});
     
-		test("log group is subscribed if it contains at least one matching tag AND value", async () => {
-			givenTagsIsDefined("tag2=value2,tag3");
-			const handler = require("./subscribe").newLogGroups;
-			await handler(getEvent());
+		describe("when TAGS_MODE is OR", () => {
+			beforeEach(() => {
+				process.env.TAGS_MODE = "OR";
+			});
 
-			expect(mockPutSubscriptionFilter).toBeCalled();
-			expect(mockListTagsLogGroup).toBeCalled();
+			test("log group is subscribed if it contains at least one matching tag", async () => {
+				givenTagsIsDefined("tag2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is subscribed if it contains at least one matching tag AND value", async () => {
+				givenTagsIsDefined("tag2=value2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is subscribed if it matches all tags and values", async () => {
+				givenTagsIsDefined("tag1=value1,tag2=value2");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+		});
+
+		describe("when TAGS_MODE is AND", () => {
+			beforeEach(() => {
+				process.env.TAGS_MODE = "AND";
+			});
+      
+			test("log group is not subscribed if it contains only one matching tag", async () => {
+				givenTagsIsDefined("tag2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is not subscribed if it contains only one matching tag AND value", async () => {
+				givenTagsIsDefined("tag2=value2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is subscribed if it matches all tags and values", async () => {
+				givenTagsIsDefined("tag1=value1,tag2=value2");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
 		});
     
 		test("log group is not subscribed if it doesn't contain any matching tag", async () => {

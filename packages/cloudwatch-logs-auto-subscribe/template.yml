@@ -22,6 +22,7 @@ Globals:
       Variables:
         PREFIX: !Ref Prefix
         TAGS: !Ref Tags
+        TAGS_MODE: !Ref TagsMode
         EXCLUDE_PREFIX: !Ref ExcludePrefix
         DESTINATION_ARN: !Ref DestinationArn
         FILTER_NAME: !Ref FilterName
@@ -145,9 +146,18 @@ Parameters:
     Type: String
     Default: ''
     Description: >
-      (Optional) if specified then only log groups with one of these tags would be subscribed.
-      e.g. 'tag1=value1,tag2,tag3' would match log groups with the 'tag1' tag whose value is 'value1',
-      or log groups who just have the tags 'tag2' or 'tag3' regardless of their values
+      (Optional) specify a common separated list of tags, e.g. 'tag1=value1,tag2,tag3'
+      Which can test for the existence of a tag (e.g. 'tag2'), and can also test the value of the tag too
+      (e.g. 'tag1=value1').
+      Whether the tests are treated with 'AND' or 'OR' semantics depends on the TagMode parameter.
+  TagsMode:
+    Type: String
+    Default: 'OR'
+    Allowed:
+      - 'AND'
+      - 'OR'
+    Description: >
+      (Optional) controls how to combine the different tag tests, whether to join them using AND or OR semantic.
   FilterName:
     Type: String
     Default: 'ship-logs'
