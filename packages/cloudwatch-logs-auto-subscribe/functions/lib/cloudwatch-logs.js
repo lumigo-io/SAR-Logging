@@ -66,14 +66,21 @@ const putSubscriptionFilter = async (logGroupName) => {
 		roleArn: roleArn
 	};
 
-	log.debug(JSON.stringify(req));
+	log.debug("adding subscription filter...", { 
+		logGroupName, 
+		arn: DESTINATION_ARN,
+		filterName,
+		filterPattern
+	});
 
 	await retry(
 		(bail) => cloudWatchLogs
 			.putSubscriptionFilter(req)
 			.promise()
 			.catch(bailIfErrorNotRetryable(bail)),
-		getRetryConfig((err) => log.warn("retrying putSubscriptionFilter after error...", { logGroupName }, err))
+		getRetryConfig((err) => {
+			log.warn("retrying putSubscriptionFilter after error...", { logGroupName }, err);
+		})
 	);
 
 	log.info(`subscribed log group to [${DESTINATION_ARN}]`, {

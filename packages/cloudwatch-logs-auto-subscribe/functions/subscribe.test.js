@@ -22,7 +22,7 @@ beforeEach(() => {
 	process.env.RETRY_MAX_TIMEOUT = "100";
 	process.env.FILTER_NAME = "ship-logs";
 	process.env.TAGS_MODE = "OR";
-
+	process.env.EXCLUDE_TAGS_MODE = "OR";
 	process.env.DESTINATION_ARN = destinationArn;
 
 	delete process.env.PREFIX;
@@ -34,12 +34,12 @@ beforeEach(() => {
 	mockPutSubscriptionFilter.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
-
+  
 	mockDeleteSubscriptionFilter.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
 
-	mockAddPermission.mockReturnValueOnce({
+	mockAddPermission.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
 });
@@ -542,6 +542,62 @@ describe("existing log group", () => {
   
 			expect(mockListTagsLogGroup).toBeCalledTimes(1);
 		});
+    
+		test("it should retry retryable errors when putting subscription filter", async () => {
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+			givenDescribeFiltersReturns();
+      
+			mockPutSubscriptionFilter.mockReset();
+			givenPutSubscriptionFilterFailsWith("ThrottlingException", "Rate exceeded");
+			givenPutSubscriptionFilterSucceeds();
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
+		});
+
+		test("it should not retry non-retryable errors when putting subscription filter", async () => {
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+			givenDescribeFiltersReturns();
+      
+			mockPutSubscriptionFilter.mockReset();
+			givenPutSubscriptionFilterFailsWith("Foo", "Bar", false);
+
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).resolves.toEqual(undefined);
+  
+			expect(mockPutSubscriptionFilter).toBeCalledTimes(1);
+		});
+    
+		test("it should retry retryable errors when deleting subscription filter", async () => {
+			process.env.OVERRIDE_MANUAL_CONFIGS = "true";
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+      
+			mockDeleteSubscriptionFilter.mockReset();
+			givenDeleteSubscriptionFilterFailsWith("ThrottlingException", "Rate exceeded");
+			givenDeleteSubscriptionFilterSucceeds();
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockDeleteSubscriptionFilter).toBeCalledTimes(2);
+		});
+
+		test("it should not retry non-retryable errors when deleting subscription filter", async () => {
+			process.env.OVERRIDE_MANUAL_CONFIGS = "true";
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+      
+			mockDeleteSubscriptionFilter.mockReset();
+			givenDeleteSubscriptionFilterFailsWith("Foo", "Bar", false);
+
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).resolves.toEqual(undefined);
+  
+			expect(mockDeleteSubscriptionFilter).toBeCalledTimes(1);
+		});
 	});
 });
 
@@ -594,6 +650,30 @@ const givenDescribeFiltersReturns = (arn, filterName = "ship-logs") => {
 
 const givenDescribeFiltersFailsWith = (code, message, retryable = true) => {
 	mockDescribeSubscriptionFilters.mockReturnValueOnce({
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
+	});
+};
+
+const givenPutSubscriptionFilterSucceeds = () => {
+	mockPutSubscriptionFilter.mockReturnValueOnce({
+		promise: () => Promise.resolve()
+	});
+};
+
+const givenPutSubscriptionFilterFailsWith = (code, message, retryable = true) => {
+	mockPutSubscriptionFilter.mockReturnValueOnce({
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
+	});
+};
+
+const givenDeleteSubscriptionFilterSucceeds = () => {
+	mockDeleteSubscriptionFilter.mockReturnValueOnce({
+		promise: () => Promise.resolve()
+	});
+};
+
+const givenDeleteSubscriptionFilterFailsWith = (code, message, retryable = true) => {
+	mockDeleteSubscriptionFilter.mockReturnValueOnce({
 		promise: () => Promise.reject(new AwsError(code, message, retryable))
 	});
 };
