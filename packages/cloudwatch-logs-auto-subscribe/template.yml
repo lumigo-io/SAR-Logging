@@ -182,7 +182,7 @@ Parameters:
       - "true"
       - "false"
     Description: >
-      (optional) Whether to replace any subscription filters that were added manually (judging by the
+      (optional) whether to replace any subscription filters that were added manually (judging by the
       fact they have different filter name).
       Defaults to "false", allowed values are "true" or "false".
 
