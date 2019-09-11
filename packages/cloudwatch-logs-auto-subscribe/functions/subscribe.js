@@ -51,6 +51,23 @@ module.exports.newLogGroups = async (event) => {
 	}
 };
 
+const tagPredicates = tagsCsv =>
+	(tagsCsv || "")
+		.split(",")
+		.filter(x => x.length > 0)
+		.map(tag => {
+			const segments = tag.split("=");
+
+			// e.g. tag1=value1
+			if (segments.length === 2) {
+				const [tagName, tagValue] = segments;
+				return (tags) => tags[tagName] === tagValue;
+			} else { // e.g tag2
+				const [tagName] = segments;
+				return (tags) => tags[tagName];
+			}
+		});
+
 const filter = async (logGroupName) => {
 	log.debug("checking log group...", { logGroupName });
   
@@ -72,40 +89,51 @@ const filter = async (logGroupName) => {
 		return false;
 	}
   
-	const hasRequiredTags = (process.env.TAGS || "")
-		.split(",")
-		.filter(x => x.length > 0)
-		.map(tag => {
-			const segments = tag.split("=");
-
-			// e.g. tag1=value1
-			if (segments.length === 2) {
-				const [tagName, tagValue] = segments;
-				return (tags) => tags[tagName] === tagValue;
-			} else { // e.g tag2
-				const [tagName] = segments;
-				return (tags) => tags[tagName];
-			}
-		});
+	const excludeTagPredicates = tagPredicates(process.env.EXCLUDE_TAGS);
+	const includeTagPredicates = tagPredicates(process.env.TAGS);
+  
+	if (includeTagPredicates.length === 0 && excludeTagPredicates.length === 0) {
+		return true;
+	}
+      
+	const logGroupTags = await cloudWatchLogs.getTags(logGroupName);
+  
+	if (excludeTagPredicates.length > 0) {
+		const isExcluded = 
+      process.env.EXCLUDE_TAGS_MODE === "AND"
+      	? excludeTagPredicates.every(f => f(logGroupTags))
+      	: excludeTagPredicates.some(f => f(logGroupTags));
+        
+		if (isExcluded) {
+			log.debug(`ignored [${logGroupName}] because of exclude tags`, {
+				logGroupName,
+				logGroupTags,
+				excludeTags: process.env.EXCLUDE_TAGS,
+				mode: process.env.EXCLUDE_TAGS_MODE
+			});
     
-	if (hasRequiredTags.length > 0) {
-		const logGroupTags = await cloudWatchLogs.getTags(logGroupName);
-		const isMatched =
-      process.env.TAGS_MODE === "AND"
-      	? hasRequiredTags.every(f => f(logGroupTags))
-      	: hasRequiredTags.some(f => f(logGroupTags));
+			return false;
+		}
+	}
 
-		if (!isMatched) {
-			log.debug(`ignored [${logGroupName}] because it doesn't have the right tags`, {
+	if (includeTagPredicates.length > 0) {
+		const isIncluded =
+    process.env.TAGS_MODE === "AND"
+    	? includeTagPredicates.every(f => f(logGroupTags))
+    	: includeTagPredicates.some(f => f(logGroupTags));
+
+		if (!isIncluded) {
+			log.debug(`ignored [${logGroupName}] because of tags`, {
 				logGroupName,
 				logGroupTags,
 				tags: process.env.TAGS,
 				mode: process.env.TAGS_MODE
 			});
+    
 			return false;
 		}
 	}
-
+  
 	return true;
 };
 

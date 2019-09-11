@@ -28,6 +28,7 @@ beforeEach(() => {
 	delete process.env.PREFIX;
 	delete process.env.EXCLUDE_PREFIX;
 	delete process.env.TAGS;
+	delete process.env.EXCLUDE_TAGS;
 	delete process.env.OVERRIDE_MANUAL_CONFIGS;
 
 	mockPutSubscriptionFilter.mockReturnValue({
@@ -54,6 +55,7 @@ afterEach(() => {
 const givenPrefixIsDefined = () => process.env.PREFIX = "/aws/lambda/";
 const givenExcludePrefixIsDefined = () => process.env.EXCLUDE_PREFIX = "/aws/lambda/exclude";
 const givenTagsIsDefined = (tags) => process.env.TAGS = tags;
+const givenExcludeTagsIsDefined = (tags) => process.env.EXCLUDE_TAGS = tags;
 
 describe("new log group", () => {
 	const getEvent = (logGroupName = "/aws/lambda/test-me") => ({
@@ -241,6 +243,103 @@ describe("new log group", () => {
 			await handler(getEvent("/aws/lambda/exclude-me"));
 
 			expect(mockPutSubscriptionFilter).not.toBeCalled();
+		});
+	});
+
+	describe("exclude tags", () => {
+		beforeEach(() => {
+			mockListTagsLogGroup.mockReturnValueOnce({
+				promise: () => Promise.resolve({
+					tags: {
+						tag1: "value1",
+						tag2: "value2"
+					}
+				})
+			});
+		});
+    
+		describe("when TAGS_MODE is OR", () => {
+			beforeEach(() => {
+				process.env.EXCLUDE_TAGS_MODE = "OR";
+			});
+
+			test("log group is not subscribed if it contains at least one matching exclude tag", async () => {
+				givenExcludeTagsIsDefined("tag2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is not subscribed if it contains at least one matching exclude tag AND value", async () => {
+				givenExcludeTagsIsDefined("tag2=value2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is not subscribed if it matches all exclude tags and values", async () => {
+				givenExcludeTagsIsDefined("tag1=value1,tag2=value2");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+		});
+
+		describe("when TAGS_MODE is AND", () => {
+			beforeEach(() => {
+				process.env.EXCLUDE_TAGS_MODE = "AND";
+			});
+      
+			test("log group is subscribed if it contains only one matching exclude tag", async () => {
+				givenExcludeTagsIsDefined("tag2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is subscribed if it contains only one matching exclude tag AND value", async () => {
+				givenExcludeTagsIsDefined("tag2=value2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is not subscribed if it matches all tags and values", async () => {
+				givenExcludeTagsIsDefined("tag1=value1,tag2=value2");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+		});
+    
+		test("log group is subscribed if it doesn't contain any matching exclude tag", async () => {
+			givenExcludeTagsIsDefined("tag3,tag4");
+			const handler = require("./subscribe").newLogGroups;
+			await handler(getEvent());
+
+			expect(mockPutSubscriptionFilter).toBeCalled();
+			expect(mockListTagsLogGroup).toBeCalled();
+		});
+    
+		test("log group is subscribed if its exclude tag value doesn't match", async () => {
+			givenExcludeTagsIsDefined("tag1=value2");
+			const handler = require("./subscribe").newLogGroups;
+			await handler(getEvent());
+
+			expect(mockPutSubscriptionFilter).toBeCalled();
+			expect(mockListTagsLogGroup).toBeCalled();
 		});
 	});
 });

@@ -23,6 +23,8 @@ Globals:
         PREFIX: !Ref Prefix
         TAGS: !Ref Tags
         TAGS_MODE: !Ref TagsMode
+        EXCLUDE_TAGS: !Ref ExcludeTags
+        EXCLUDE_TAGS_MODE: !Ref ExcludeTagsMode
         EXCLUDE_PREFIX: !Ref ExcludePrefix
         DESTINATION_ARN: !Ref DestinationArn
         FILTER_NAME: !Ref FilterName
@@ -146,7 +148,7 @@ Parameters:
     Type: String
     Default: ''
     Description: >
-      (Optional) specify a common separated list of tags, e.g. 'tag1=value1,tag2,tag3'
+      (Optional) specify a common separated list of tags to whitelist log groups with, e.g. 'tag1=value1,tag2,tag3'
       Which can test for the existence of a tag (e.g. 'tag2'), and can also test the value of the tag too
       (e.g. 'tag1=value1').
       Whether the tests are treated with 'AND' or 'OR' semantics depends on the TagMode parameter.
@@ -158,7 +160,24 @@ Parameters:
       - 'OR'
     Description: >
       (Optional) controls how to combine the different tag tests, whether to join them using AND or OR semantic.
-      Allowed values are "AND" or "OR".
+      Allowed values are "AND" or "OR". Defaults to "OR".
+  ExcludeTags:
+    Type: String
+    Default: ''
+    Description: >
+      (Optional) specify a common separated list of tags to blacklist log groups with, e.g. 'tag1=value1,tag2,tag3'
+      Which can test for the existence of a tag (e.g. 'tag2'), and can also test the value of the tag too
+      (e.g. 'tag1=value1').
+      Whether the tests are treated with 'AND' or 'OR' semantics depends on the ExcludeTagMode parameter.
+  ExcludeTagsMode:
+    Type: String
+    Default: 'OR'
+    AllowedValues:
+      - 'AND'
+      - 'OR'
+    Description: >
+      (Optional) controls how to combine the different exclude tag tests, whether to join them using AND or OR semantic.
+      Allowed values are "AND" or "OR". Defaults to "OR".
   FilterName:
     Type: String
     Default: 'ship-logs'
