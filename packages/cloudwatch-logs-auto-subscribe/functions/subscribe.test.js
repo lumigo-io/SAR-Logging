@@ -8,6 +8,8 @@ const mockDescribeLogGroups = jest.fn();
 AWS.CloudWatchLogs.prototype.describeLogGroups = mockDescribeLogGroups;
 const mockDescribeSubscriptionFilters = jest.fn();
 AWS.CloudWatchLogs.prototype.describeSubscriptionFilters = mockDescribeSubscriptionFilters;
+const mockDeleteSubscriptionFilter = jest.fn();
+AWS.CloudWatchLogs.prototype.deleteSubscriptionFilter = mockDeleteSubscriptionFilter;
 const mockAddPermission = jest.fn();
 AWS.Lambda.prototype.addPermission = mockAddPermission;
 
@@ -18,36 +20,35 @@ console.log = jest.fn();
 beforeEach(() => {
 	process.env.RETRY_MIN_TIMEOUT = "100";
 	process.env.RETRY_MAX_TIMEOUT = "100";
+	process.env.FILTER_NAME = "ship-logs";
+	process.env.TAGS_MODE = "OR";
 
 	process.env.DESTINATION_ARN = destinationArn;
 
 	delete process.env.PREFIX;
 	delete process.env.EXCLUDE_PREFIX;
 	delete process.env.TAGS;
+	delete process.env.OVERRIDE_MANUAL_CONFIGS;
 
 	mockPutSubscriptionFilter.mockReturnValue({
+		promise: () => Promise.resolve()
+	});
+
+	mockDeleteSubscriptionFilter.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
 
 	mockAddPermission.mockReturnValueOnce({
 		promise: () => Promise.resolve()
 	});
-  
-	mockListTagsLogGroup.mockReturnValueOnce({
-		promise: () => Promise.resolve({
-			tags: {
-				tag1: "value1",
-				tag2: "value2"
-			}
-		})
-	});
 });
 
 afterEach(() => {
-	mockPutSubscriptionFilter.mockClear();
-	mockDescribeLogGroups.mockClear();
-	mockDescribeSubscriptionFilters.mockClear();
-	mockListTagsLogGroup.mockClear();  
+	mockPutSubscriptionFilter.mockReset();
+	mockDeleteSubscriptionFilter.mockReset();
+	mockDescribeLogGroups.mockReset();
+	mockDescribeSubscriptionFilters.mockReset();
+	mockListTagsLogGroup.mockReset();
 });
 
 const givenPrefixIsDefined = () => process.env.PREFIX = "/aws/lambda/";
@@ -92,22 +93,81 @@ describe("new log group", () => {
 	});
 
 	describe("tags", () => {
-		test("log group is subscribed if it contains at least one matching tag", async () => {
-			givenTagsIsDefined("tag2,tag3");
-			const handler = require("./subscribe").newLogGroups;
-			await handler(getEvent());
-
-			expect(mockPutSubscriptionFilter).toBeCalled();
-			expect(mockListTagsLogGroup).toBeCalled();
+		beforeEach(() => {
+			mockListTagsLogGroup.mockReturnValueOnce({
+				promise: () => Promise.resolve({
+					tags: {
+						tag1: "value1",
+						tag2: "value2"
+					}
+				})
+			});
 		});
     
-		test("log group is subscribed if it contains at least one matching tag AND value", async () => {
-			givenTagsIsDefined("tag2=value2,tag3");
-			const handler = require("./subscribe").newLogGroups;
-			await handler(getEvent());
+		describe("when TAGS_MODE is OR", () => {
+			beforeEach(() => {
+				process.env.TAGS_MODE = "OR";
+			});
 
-			expect(mockPutSubscriptionFilter).toBeCalled();
-			expect(mockListTagsLogGroup).toBeCalled();
+			test("log group is subscribed if it contains at least one matching tag", async () => {
+				givenTagsIsDefined("tag2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is subscribed if it contains at least one matching tag AND value", async () => {
+				givenTagsIsDefined("tag2=value2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is subscribed if it matches all tags and values", async () => {
+				givenTagsIsDefined("tag1=value1,tag2=value2");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+		});
+
+		describe("when TAGS_MODE is AND", () => {
+			beforeEach(() => {
+				process.env.TAGS_MODE = "AND";
+			});
+      
+			test("log group is not subscribed if it contains only one matching tag", async () => {
+				givenTagsIsDefined("tag2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is not subscribed if it contains only one matching tag AND value", async () => {
+				givenTagsIsDefined("tag2=value2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is subscribed if it matches all tags and values", async () => {
+				givenTagsIsDefined("tag1=value1,tag2=value2");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
 		});
     
 		test("log group is not subscribed if it doesn't contain any matching tag", async () => {
@@ -241,11 +301,18 @@ describe("existing log group", () => {
 		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
 		givenDescribeLogGroupsReturns(["/api/gateway/group1", "/api/gateway/group2"]);
 
-		mockListTagsLogGroup.mockClear();
-		givenListTagsReturns("tag2");         // group1 (replaced)
-		givenListTagsReturns("tag2", "tag3"); // group2 (replaced)
-		givenListTagsReturns("tag1");         // api group1 (ignored)
-		givenListTagsReturns();               // api group2 (ignored)
+		givenListTagsReturns({ 
+			tag2: "value2"
+		}); // group1 (replaced)
+		givenListTagsReturns({
+			tag2: "value2", 
+			tag3: "value3"
+		}); // group2 (replaced)
+		givenListTagsReturns({
+			tag1: "value1"
+		}); // api group1 (ignored)
+		givenListTagsReturns({
+		}); // api group2 (ignored)
 
 		givenDescribeFiltersReturns("some-other-arn"); // group1 (replaced)
 		givenDescribeFiltersReturns("some-other-arn"); // group2 (replaced)
@@ -269,15 +336,113 @@ describe("existing log group", () => {
 
 		expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
 	});
+
+	describe("OVERRIDE_MANUAL_CONFIGS", () => {
+		test("when OVERRIDE_MANUAL_CONFIGS is true, should replace manual configuration", async () => {
+			process.env.OVERRIDE_MANUAL_CONFIGS = "true";
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+    
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+
+			expect(mockDeleteSubscriptionFilter).toBeCalled();
+			expect(mockPutSubscriptionFilter).toBeCalled();
+		});
+    
+		test("when OVERRIDE_MANUAL_CONFIGS is false, should not replace manual configuration", async () => {
+			process.env.OVERRIDE_MANUAL_CONFIGS = "false";
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+    
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+
+			expect(mockDeleteSubscriptionFilter).not.toBeCalled();
+			expect(mockPutSubscriptionFilter).not.toBeCalled();
+		});
+    
+		test("when OVERRIDE_MANUAL_CONFIGS is not set, should not replace manual configuration", async () => {			
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+    
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+
+			expect(mockDeleteSubscriptionFilter).not.toBeCalled();
+			expect(mockPutSubscriptionFilter).not.toBeCalled();
+		});
+	});
   
-	test("it should retry errors when listing log groups", async () => {
-		givenDescribeLogGroupsFailsWith("ThrottlingException", "Rate exceeded");
-		givenDescribeLogGroupsReturns([]);
+	describe("error handling", () => {
+		test("it should retry retryable errors when listing log groups", async () => {
+			givenDescribeLogGroupsFailsWith("ThrottlingException", "Rate exceeded");
+			givenDescribeLogGroupsReturns([]);
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockDescribeLogGroups).toBeCalledTimes(2);
+		});
+    
+		test("it should not retry non-retryable errors when listing log groups", async () => {
+			givenDescribeLogGroupsFailsWith("Foo", "Bar", false);
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).rejects;
+  
+			expect(mockDescribeLogGroups).toBeCalledTimes(1);
+		});
 
-		const handler = require("./subscribe").existingLogGroups;
-		await handler();
+		test("it should retry retryable errors when getting a log group's subscription filters", async () => {
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+      
+			givenDescribeFiltersFailsWith("ThrottlingException", "Rate exceeded");
+			givenDescribeFiltersReturns();
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockDescribeSubscriptionFilters).toBeCalledTimes(2);
+		});
 
-		expect(mockDescribeLogGroups).toBeCalledTimes(2);
+		test("it should not retry non-retryable errors when getting a log group's subscription filters", async () => {
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+      
+			givenDescribeFiltersFailsWith("Foo", "Bar", false);
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).resolves.toEqual(undefined);
+  
+			expect(mockDescribeSubscriptionFilters).toBeCalledTimes(1);
+		});
+
+		test("it should retry retryable errors when getting a log group's tags", async () => {
+			givenTagsIsDefined("tag1=value1");
+
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+      
+			givenListTagsFailsWith("ThrottlingException", "Rate exceeded");
+			givenListTagsReturns({ tag1: "value1" });
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockListTagsLogGroup).toBeCalledTimes(2);
+		});
+
+		test("it should not retry non-retryable errors when getting a log group's tags", async () => {
+			givenTagsIsDefined("tag1=value1");
+
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+      
+			givenListTagsFailsWith("Foo", "Bar", false);
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).resolves.toEqual(undefined);
+  
+			expect(mockListTagsLogGroup).toBeCalledTimes(1);
+		});
 	});
 });
 
@@ -287,17 +452,23 @@ const givenPutFilterFailsWith = (code, message) => {
 	});
 };
 
-const givenDescribeLogGroupsFailsWith = (code, message) => {
+const givenDescribeLogGroupsFailsWith = (code, message, retryable = true) => {
 	mockDescribeLogGroups.mockReturnValueOnce({
-		promise: () => Promise.reject(new AwsError(code, message))
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
 	});
 };
 
-const givenListTagsReturns = (...tags) => {
+const givenListTagsReturns = (tags) => {
 	mockListTagsLogGroup.mockReturnValueOnce({
 		promise: () => Promise.resolve({
 			tags
 		})
+	});
+};
+
+const givenListTagsFailsWith = (code, message, retryable = true) => {
+	mockListTagsLogGroup.mockReturnValueOnce({
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
 	});
 };
 
@@ -310,8 +481,10 @@ const givenDescribeLogGroupsReturns = (logGroups, hasMore = false) => {
 	});
 };
 
-const givenDescribeFiltersReturns = (arn) => {
-	const subscriptionFilters = arn ? [{ destinationArn: arn }] : [];
+const givenDescribeFiltersReturns = (arn, filterName = "ship-logs") => {
+	const subscriptionFilters = arn 
+		? [{ destinationArn: arn, filterName }] 
+		: [];
 
 	mockDescribeSubscriptionFilters.mockReturnValueOnce({
 		promise: () => Promise.resolve({
@@ -320,10 +493,17 @@ const givenDescribeFiltersReturns = (arn) => {
 	});
 };
 
+const givenDescribeFiltersFailsWith = (code, message, retryable = true) => {
+	mockDescribeSubscriptionFilters.mockReturnValueOnce({
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
+	});
+};
+
 class AwsError extends Error {
-	constructor (code, message) {
+	constructor (code, message, retryable) {
 		super(message);
 
 		this.code = code;
+		this.retryable = retryable;
 	}
 }

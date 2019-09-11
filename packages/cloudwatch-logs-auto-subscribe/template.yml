@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.5.0
+    SemanticVersion: 1.6.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Globals:
@@ -20,23 +20,16 @@ Globals:
     MemorySize: 128
     Environment:
       Variables:
-        PREFIX:
-          Ref: Prefix
-        TAGS:
-          Ref: Tags
-        EXCLUDE_PREFIX:
-          Ref: ExcludePrefix
-        DESTINATION_ARN:
-          Ref: DestinationArn
-        FILTER_NAME:
-          Ref: FilterName
-        FILTER_PATTERN:
-          Ref: FilterPattern
-        ROLE_ARN:
-          Fn::GetAtt:
-            - CloudWatchToKinesisRole
-            - Arn
+        PREFIX: !Ref Prefix
+        TAGS: !Ref Tags
+        TAGS_MODE: !Ref TagsMode
+        EXCLUDE_PREFIX: !Ref ExcludePrefix
+        DESTINATION_ARN: !Ref DestinationArn
+        FILTER_NAME: !Ref FilterName
+        FILTER_PATTERN: !Ref FilterPattern
+        ROLE_ARN: !GetAtt CloudWatchToKinesisRole.Arn
         LOG_LEVEL: INFO
+        OVERRIDE_MANUAL_CONFIGS: !Ref OverrideManualConfigs
 
 Resources:
   SubscribeNewLogGroups:
@@ -54,8 +47,7 @@ Resources:
             Resource: '*'
         - Statement:
             Effect: Allow
-            Action:
-              - lambda:AddPermission
+            Action: lambda:AddPermission
             Resource: '*'
         - Statement: # required for subscribing to a Kinesis stream
             Effect: Allow
@@ -87,14 +79,14 @@ Resources:
             Effect: Allow
             Action: 
               - logs:PutSubscriptionFilter
+              - logs:DeleteSubscriptionFilter
               - logs:DescribeLogGroups
               - logs:DescribeSubscriptionFilters
               - logs:ListTagsLogGroup
             Resource: '*'
         - Statement:
             Effect: Allow
-            Action:
-              - lambda:AddPermission
+            Action: lambda:AddPermission
             Resource: '*'
         - Statement: # required for subscribing to a Kinesis stream
             Effect: Allow
@@ -109,12 +101,7 @@ Resources:
           Effect: Allow
           Action: sts:AssumeRole
           Principal: 
-            Service: 
-              Fn::Join:
-                - '.'
-                - - logs
-                  - Ref: AWS::Region
-                  - amazonaws.com
+            Service: !Sub logs.${AWS::Region}.amazonaws.com
       Policies:
         - PolicyName: root
           PolicyDocument:
@@ -159,9 +146,18 @@ Parameters:
     Type: String
     Default: ''
     Description: >
-      (Optional) if specified then only log groups with one of these tags would be subscribed.
-      e.g. 'tag1=value1,tag2,tag3' would match log groups with the 'tag1' tag whose value is 'value1',
-      or log groups who just have the tags 'tag2' or 'tag3' regardless of their values
+      (Optional) specify a common separated list of tags, e.g. 'tag1=value1,tag2,tag3'
+      Which can test for the existence of a tag (e.g. 'tag2'), and can also test the value of the tag too
+      (e.g. 'tag1=value1').
+      Whether the tests are treated with 'AND' or 'OR' semantics depends on the TagMode parameter.
+  TagsMode:
+    Type: String
+    Default: 'OR'
+    Allowed:
+      - 'AND'
+      - 'OR'
+    Description: >
+      (Optional) controls how to combine the different tag tests, whether to join them using AND or OR semantic.
   FilterName:
     Type: String
     Default: 'ship-logs'
@@ -178,3 +174,14 @@ Parameters:
     Description: >
       (Optional) if specified then log groups that match the prefix will not be subscribed.
       E.g. '/aws/lambda/my-function-' will exclude Lambda function logs for functions that start with 'my-function-'
+  OverrideManualConfigs:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: >
+      (optional) Whether to replace any subscription filters that were added manually (judging by the
+      fact they have different filter name).
+      Defaults to "false", allowed values are "true" or "false".
+
