@@ -1,5 +1,8 @@
 # cloudwatch-logs-auto-subscribe
 
+[![Version](https://img.shields.io/badge/semver-1.5.0-blue)](template.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
 Subscribes **new and existing** CloudWatch log groups to Lambda/Kinesis/Firehose by ARN.
 
 ## Deploying to your account (via the console)
