@@ -15,9 +15,10 @@ const destinationArn = "arn:aws:lambda:us-east-1:123456789:function:boohoo";
 
 console.log = jest.fn();
 
-jest.setTimeout(10000);
-
 beforeEach(() => {
+	process.env.RETRY_MIN_TIMEOUT = "100";
+	process.env.RETRY_MAX_TIMEOUT = "100";
+
 	process.env.DESTINATION_ARN = destinationArn;
 
 	delete process.env.PREFIX;
@@ -160,7 +161,10 @@ describe("new log group", () => {
 
 	describe("error handling", () => {
 		test("it should not handle any errors", async () => {
-			givenPutFilterFailsWith("boo", "hoo");
+			mockPutSubscriptionFilter.mockReset();
+			mockPutSubscriptionFilter.mockReturnValue({
+				promise: () => Promise.reject(new AwsError("boo", "hoo"))
+			});
 
 			const handler = require("./subscribe").newLogGroups;
 			await expect(handler(getEvent())).rejects.toThrow();

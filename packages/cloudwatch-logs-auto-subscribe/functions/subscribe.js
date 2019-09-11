@@ -7,23 +7,27 @@ const { DESTINATION_ARN } = process.env;
 module.exports.existingLogGroups = async () => {
 	const logGroupNames = await cloudWatchLogs.getLogGroups();
 	for (const logGroupName of logGroupNames) {
-		if (await filter(logGroupName)) {
-			const destinationArn = await cloudWatchLogs.getSubscriptionFilter(logGroupName);
-			if (!destinationArn) {
-				log.debug(`[${logGroupName}] doesn't have a filter yet`);
-        
-				// swallow exception so we can move onto the next log group
-				await subscribe(logGroupName).catch(() => {});
-			} else if (destinationArn !== DESTINATION_ARN) {
-				log.debug(`[${logGroupName}] has an old destination ARN [${destinationArn}], updating...`, {
-					logGroupName,
-					oldArn: destinationArn,
-					arn: DESTINATION_ARN
-				});
-        
-				// swallow exception so we can move onto the next log group
-				await subscribe(logGroupName).catch(console.error);
+		try {
+			if (await filter(logGroupName)) {
+				const destinationArn = await cloudWatchLogs.getSubscriptionFilter(logGroupName);
+				if (!destinationArn) {
+					log.debug(`[${logGroupName}] doesn't have a filter yet`);
+          
+					// swallow exception so we can move onto the next log group
+					await subscribe(logGroupName).catch(() => {});
+				} else if (destinationArn !== DESTINATION_ARN) {
+					log.debug(`[${logGroupName}] has an old destination ARN [${destinationArn}], updating...`, {
+						logGroupName,
+						oldArn: destinationArn,
+						arn: DESTINATION_ARN
+					});
+          
+					// swallow exception so we can move onto the next log group
+					await subscribe(logGroupName).catch(console.error);
+				}
 			}
+		} catch(error) {
+			log.warn("cannot process existing log group, skipped...", { logGroupName }, error);
 		}
 	}
 };

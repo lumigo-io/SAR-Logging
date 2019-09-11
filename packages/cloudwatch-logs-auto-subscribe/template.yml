@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.4.0
+    SemanticVersion: 1.5.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Globals:
@@ -81,7 +81,7 @@ Resources:
     Properties:
       Handler: functions/subscribe.existingLogGroups
       Description: Subscribes existing log groups to the specified destination ARN.
-      Timeout: 840
+      Timeout: 900
       Policies:
         - Statement:
             Effect: Allow
@@ -131,7 +131,7 @@ Resources:
     Properties:
       Location:
         ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/lambda-invocation-cfn-custom-resource
-        SemanticVersion: 1.0.1
+        SemanticVersion: 1.1.0
 
   # custom resource to invoke the SubscribeExistingLogGroups function during deployment
   InvokeSubscribeExistingLogGroups:
@@ -142,7 +142,7 @@ Resources:
     Properties:
       ServiceToken: !GetAtt LambdaInvocationCustomResource.Outputs.FunctionArn
       FunctionName: !Ref SubscribeExistingLogGroups
-      Payload: {}
+      InvocationType: Event # don't wait for the subscribe existing function to finish
 
 Parameters:
   DestinationArn:
