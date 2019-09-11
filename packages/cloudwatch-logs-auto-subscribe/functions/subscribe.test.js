@@ -22,23 +22,24 @@ beforeEach(() => {
 	process.env.RETRY_MAX_TIMEOUT = "100";
 	process.env.FILTER_NAME = "ship-logs";
 	process.env.TAGS_MODE = "OR";
-
+	process.env.EXCLUDE_TAGS_MODE = "OR";
 	process.env.DESTINATION_ARN = destinationArn;
 
 	delete process.env.PREFIX;
 	delete process.env.EXCLUDE_PREFIX;
 	delete process.env.TAGS;
+	delete process.env.EXCLUDE_TAGS;
 	delete process.env.OVERRIDE_MANUAL_CONFIGS;
 
 	mockPutSubscriptionFilter.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
-
+  
 	mockDeleteSubscriptionFilter.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
 
-	mockAddPermission.mockReturnValueOnce({
+	mockAddPermission.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
 });
@@ -54,6 +55,7 @@ afterEach(() => {
 const givenPrefixIsDefined = () => process.env.PREFIX = "/aws/lambda/";
 const givenExcludePrefixIsDefined = () => process.env.EXCLUDE_PREFIX = "/aws/lambda/exclude";
 const givenTagsIsDefined = (tags) => process.env.TAGS = tags;
+const givenExcludeTagsIsDefined = (tags) => process.env.EXCLUDE_TAGS = tags;
 
 describe("new log group", () => {
 	const getEvent = (logGroupName = "/aws/lambda/test-me") => ({
@@ -241,6 +243,103 @@ describe("new log group", () => {
 			await handler(getEvent("/aws/lambda/exclude-me"));
 
 			expect(mockPutSubscriptionFilter).not.toBeCalled();
+		});
+	});
+
+	describe("exclude tags", () => {
+		beforeEach(() => {
+			mockListTagsLogGroup.mockReturnValueOnce({
+				promise: () => Promise.resolve({
+					tags: {
+						tag1: "value1",
+						tag2: "value2"
+					}
+				})
+			});
+		});
+    
+		describe("when TAGS_MODE is OR", () => {
+			beforeEach(() => {
+				process.env.EXCLUDE_TAGS_MODE = "OR";
+			});
+
+			test("log group is not subscribed if it contains at least one matching exclude tag", async () => {
+				givenExcludeTagsIsDefined("tag2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is not subscribed if it contains at least one matching exclude tag AND value", async () => {
+				givenExcludeTagsIsDefined("tag2=value2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is not subscribed if it matches all exclude tags and values", async () => {
+				givenExcludeTagsIsDefined("tag1=value1,tag2=value2");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+		});
+
+		describe("when TAGS_MODE is AND", () => {
+			beforeEach(() => {
+				process.env.EXCLUDE_TAGS_MODE = "AND";
+			});
+      
+			test("log group is subscribed if it contains only one matching exclude tag", async () => {
+				givenExcludeTagsIsDefined("tag2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is subscribed if it contains only one matching exclude tag AND value", async () => {
+				givenExcludeTagsIsDefined("tag2=value2,tag3");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+      
+			test("log group is not subscribed if it matches all tags and values", async () => {
+				givenExcludeTagsIsDefined("tag1=value1,tag2=value2");
+				const handler = require("./subscribe").newLogGroups;
+				await handler(getEvent());
+  
+				expect(mockPutSubscriptionFilter).not.toBeCalled();
+				expect(mockListTagsLogGroup).toBeCalled();
+			});
+		});
+    
+		test("log group is subscribed if it doesn't contain any matching exclude tag", async () => {
+			givenExcludeTagsIsDefined("tag3,tag4");
+			const handler = require("./subscribe").newLogGroups;
+			await handler(getEvent());
+
+			expect(mockPutSubscriptionFilter).toBeCalled();
+			expect(mockListTagsLogGroup).toBeCalled();
+		});
+    
+		test("log group is subscribed if its exclude tag value doesn't match", async () => {
+			givenExcludeTagsIsDefined("tag1=value2");
+			const handler = require("./subscribe").newLogGroups;
+			await handler(getEvent());
+
+			expect(mockPutSubscriptionFilter).toBeCalled();
+			expect(mockListTagsLogGroup).toBeCalled();
 		});
 	});
 });
@@ -443,6 +542,62 @@ describe("existing log group", () => {
   
 			expect(mockListTagsLogGroup).toBeCalledTimes(1);
 		});
+    
+		test("it should retry retryable errors when putting subscription filter", async () => {
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+			givenDescribeFiltersReturns();
+      
+			mockPutSubscriptionFilter.mockReset();
+			givenPutSubscriptionFilterFailsWith("ThrottlingException", "Rate exceeded");
+			givenPutSubscriptionFilterSucceeds();
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
+		});
+
+		test("it should not retry non-retryable errors when putting subscription filter", async () => {
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+			givenDescribeFiltersReturns();
+      
+			mockPutSubscriptionFilter.mockReset();
+			givenPutSubscriptionFilterFailsWith("Foo", "Bar", false);
+
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).resolves.toEqual(undefined);
+  
+			expect(mockPutSubscriptionFilter).toBeCalledTimes(1);
+		});
+    
+		test("it should retry retryable errors when deleting subscription filter", async () => {
+			process.env.OVERRIDE_MANUAL_CONFIGS = "true";
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+      
+			mockDeleteSubscriptionFilter.mockReset();
+			givenDeleteSubscriptionFilterFailsWith("ThrottlingException", "Rate exceeded");
+			givenDeleteSubscriptionFilterSucceeds();
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockDeleteSubscriptionFilter).toBeCalledTimes(2);
+		});
+
+		test("it should not retry non-retryable errors when deleting subscription filter", async () => {
+			process.env.OVERRIDE_MANUAL_CONFIGS = "true";
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+      
+			mockDeleteSubscriptionFilter.mockReset();
+			givenDeleteSubscriptionFilterFailsWith("Foo", "Bar", false);
+
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).resolves.toEqual(undefined);
+  
+			expect(mockDeleteSubscriptionFilter).toBeCalledTimes(1);
+		});
 	});
 });
 
@@ -495,6 +650,30 @@ const givenDescribeFiltersReturns = (arn, filterName = "ship-logs") => {
 
 const givenDescribeFiltersFailsWith = (code, message, retryable = true) => {
 	mockDescribeSubscriptionFilters.mockReturnValueOnce({
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
+	});
+};
+
+const givenPutSubscriptionFilterSucceeds = () => {
+	mockPutSubscriptionFilter.mockReturnValueOnce({
+		promise: () => Promise.resolve()
+	});
+};
+
+const givenPutSubscriptionFilterFailsWith = (code, message, retryable = true) => {
+	mockPutSubscriptionFilter.mockReturnValueOnce({
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
+	});
+};
+
+const givenDeleteSubscriptionFilterSucceeds = () => {
+	mockDeleteSubscriptionFilter.mockReturnValueOnce({
+		promise: () => Promise.resolve()
+	});
+};
+
+const givenDeleteSubscriptionFilterFailsWith = (code, message, retryable = true) => {
+	mockDeleteSubscriptionFilter.mockReturnValueOnce({
 		promise: () => Promise.reject(new AwsError(code, message, retryable))
 	});
 };
