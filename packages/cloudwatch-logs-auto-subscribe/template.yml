@@ -153,11 +153,12 @@ Parameters:
   TagsMode:
     Type: String
     Default: 'OR'
-    Allowed:
+    AllowedValues:
       - 'AND'
       - 'OR'
     Description: >
       (Optional) controls how to combine the different tag tests, whether to join them using AND or OR semantic.
+      Allowed values are "AND" or "OR".
   FilterName:
     Type: String
     Default: 'ship-logs'
