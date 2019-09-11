@@ -20,23 +20,15 @@ Globals:
     MemorySize: 128
     Environment:
       Variables:
-        PREFIX:
-          Ref: Prefix
-        TAGS:
-          Ref: Tags
-        EXCLUDE_PREFIX:
-          Ref: ExcludePrefix
-        DESTINATION_ARN:
-          Ref: DestinationArn
-        FILTER_NAME:
-          Ref: FilterName
-        FILTER_PATTERN:
-          Ref: FilterPattern
-        ROLE_ARN:
-          Fn::GetAtt:
-            - CloudWatchToKinesisRole
-            - Arn
+        PREFIX: !Ref Prefix
+        TAGS: !Ref Tags
+        EXCLUDE_PREFIX: !Ref ExcludePrefix
+        DESTINATION_ARN: !Ref DestinationArn
+        FILTER_NAME: !Ref FilterName
+        FILTER_PATTERN: !Ref FilterPattern
+        ROLE_ARN: !GetAtt CloudWatchToKinesisRole.Arn
         LOG_LEVEL: INFO
+        OVERRIDE_MANUAL_CONFIGS: !Ref OverrideManualConfigs
 
 Resources:
   SubscribeNewLogGroups:
@@ -54,8 +46,7 @@ Resources:
             Resource: '*'
         - Statement:
             Effect: Allow
-            Action:
-              - lambda:AddPermission
+            Action: lambda:AddPermission
             Resource: '*'
         - Statement: # required for subscribing to a Kinesis stream
             Effect: Allow
@@ -87,14 +78,14 @@ Resources:
             Effect: Allow
             Action: 
               - logs:PutSubscriptionFilter
+              - logs:DeleteSubscriptionFilter
               - logs:DescribeLogGroups
               - logs:DescribeSubscriptionFilters
               - logs:ListTagsLogGroup
             Resource: '*'
         - Statement:
             Effect: Allow
-            Action:
-              - lambda:AddPermission
+            Action: lambda:AddPermission
             Resource: '*'
         - Statement: # required for subscribing to a Kinesis stream
             Effect: Allow
@@ -109,12 +100,7 @@ Resources:
           Effect: Allow
           Action: sts:AssumeRole
           Principal: 
-            Service: 
-              Fn::Join:
-                - '.'
-                - - logs
-                  - Ref: AWS::Region
-                  - amazonaws.com
+            Service: !Sub logs.${AWS::Region}.amazonaws.com
       Policies:
         - PolicyName: root
           PolicyDocument:
@@ -178,3 +164,14 @@ Parameters:
     Description: >
       (Optional) if specified then log groups that match the prefix will not be subscribed.
       E.g. '/aws/lambda/my-function-' will exclude Lambda function logs for functions that start with 'my-function-'
+  OverrideManualConfigs:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: >
+      (optional) Whether to replace any subscription filters that were added manually (judging by the
+      fact they have different filter name).
+      Defaults to "false", allowed values are "true" or "false".
+

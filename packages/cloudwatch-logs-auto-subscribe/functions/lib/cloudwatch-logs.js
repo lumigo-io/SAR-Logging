@@ -50,7 +50,7 @@ const getSubscriptionFilter = async (logGroupName) => {
 	if (resp.subscriptionFilters.length === 0) {
 		return null;
 	} else {
-		return resp.subscriptionFilters[0].destinationArn;
+		return resp.subscriptionFilters[0];
 	}
 };
 
@@ -79,6 +79,28 @@ const putSubscriptionFilter = async (logGroupName) => {
 	log.info(`subscribed log group to [${DESTINATION_ARN}]`, {
 		logGroupName,
 		arn: DESTINATION_ARN
+	});
+};
+
+const deleteSubscriptionFilter = async (logGroupName, filterName) => {
+	const req = {
+		logGroupName: logGroupName,
+		filterName: filterName
+	};
+
+	log.debug("deleting existing filter...", { logGroupName, filterName });
+
+	await retry(
+		(bail) => cloudWatchLogs
+			.deleteSubscriptionFilter(req)
+			.promise()
+			.catch(bailIfErrorNotRetryable(bail)),
+		getRetryConfig((err) => log.warn("retrying deleteSubscriptionFilter after error...", { logGroupName }, err))
+	);
+
+	log.info(`deleted subscription filter [${filterName}]`, {
+		logGroupName,
+		filterName
 	});
 };
 
@@ -118,5 +140,6 @@ module.exports = {
 	getTags,
 	getSubscriptionFilter,
 	putSubscriptionFilter,
+	deleteSubscriptionFilter,
 	getLogGroups
 };

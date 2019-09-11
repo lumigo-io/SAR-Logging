@@ -2,28 +2,37 @@ const lambda = require("./lib/lambda");
 const cloudWatchLogs = require("./lib/cloudwatch-logs");
 const log = require("@dazn/lambda-powertools-logger");
 
-const { DESTINATION_ARN } = process.env;
+const { FILTER_NAME, DESTINATION_ARN } = process.env;
 
 module.exports.existingLogGroups = async () => {
 	const logGroupNames = await cloudWatchLogs.getLogGroups();
 	for (const logGroupName of logGroupNames) {
 		try {
 			if (await filter(logGroupName)) {
-				const destinationArn = await cloudWatchLogs.getSubscriptionFilter(logGroupName);
-				if (!destinationArn) {
+				const old = await cloudWatchLogs.getSubscriptionFilter(logGroupName);
+				if (!old) {
 					log.debug(`[${logGroupName}] doesn't have a filter yet`);
           
-					// swallow exception so we can move onto the next log group
-					await subscribe(logGroupName).catch(() => {});
-				} else if (destinationArn !== DESTINATION_ARN) {
-					log.debug(`[${logGroupName}] has an old destination ARN [${destinationArn}], updating...`, {
+					await subscribe(logGroupName);
+				} else if (old.destinationArn !== DESTINATION_ARN && old.filterName === FILTER_NAME) {
+					log.debug(`[${logGroupName}] has an old destination ARN [${old.destinationArn}], updating...`, {
 						logGroupName,
-						oldArn: destinationArn,
+						oldArn: old.destinationArn,
 						arn: DESTINATION_ARN
 					});
           
-					// swallow exception so we can move onto the next log group
-					await subscribe(logGroupName).catch(console.error);
+					await subscribe(logGroupName);
+				} else if (old.destinationArn !== DESTINATION_ARN && process.env.OVERRIDE_MANUAL_CONFIGS === "true") {
+					log.info(`[${logGroupName}] has an old destination ARN [${old.destinationArn}] that was added manually, replacing...`, {
+						logGroupName,
+						oldArn: old.destinationArn,
+						oldFilterName: old.filterName,
+						arn: DESTINATION_ARN,
+						filterName: FILTER_NAME
+					});
+
+					await cloudWatchLogs.deleteSubscriptionFilter(logGroupName, old.filterName);
+					await subscribe(logGroupNames);
 				}
 			}
 		} catch(error) {

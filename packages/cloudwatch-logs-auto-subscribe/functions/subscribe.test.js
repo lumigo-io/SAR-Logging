@@ -8,6 +8,8 @@ const mockDescribeLogGroups = jest.fn();
 AWS.CloudWatchLogs.prototype.describeLogGroups = mockDescribeLogGroups;
 const mockDescribeSubscriptionFilters = jest.fn();
 AWS.CloudWatchLogs.prototype.describeSubscriptionFilters = mockDescribeSubscriptionFilters;
+const mockDeleteSubscriptionFilter = jest.fn();
+AWS.CloudWatchLogs.prototype.deleteSubscriptionFilter = mockDeleteSubscriptionFilter;
 const mockAddPermission = jest.fn();
 AWS.Lambda.prototype.addPermission = mockAddPermission;
 
@@ -18,14 +20,20 @@ console.log = jest.fn();
 beforeEach(() => {
 	process.env.RETRY_MIN_TIMEOUT = "100";
 	process.env.RETRY_MAX_TIMEOUT = "100";
+	process.env.FILTER_NAME = "ship-logs";
 
 	process.env.DESTINATION_ARN = destinationArn;
 
 	delete process.env.PREFIX;
 	delete process.env.EXCLUDE_PREFIX;
 	delete process.env.TAGS;
+	delete process.env.OVERRIDE_MANUAL_CONFIGS;
 
 	mockPutSubscriptionFilter.mockReturnValue({
+		promise: () => Promise.resolve()
+	});
+
+	mockDeleteSubscriptionFilter.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
 
@@ -36,6 +44,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	mockPutSubscriptionFilter.mockReset();
+	mockDeleteSubscriptionFilter.mockReset();
 	mockDescribeLogGroups.mockReset();
 	mockDescribeSubscriptionFilters.mockReset();
 	mockListTagsLogGroup.mockReset();
@@ -278,6 +287,43 @@ describe("existing log group", () => {
 
 		expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
 	});
+
+	describe("OVERRIDE_MANUAL_CONFIGS", () => {
+		test("when OVERRIDE_MANUAL_CONFIGS is true, should replace manual configuration", async () => {
+			process.env.OVERRIDE_MANUAL_CONFIGS = "true";
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+    
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+
+			expect(mockDeleteSubscriptionFilter).toBeCalled();
+			expect(mockPutSubscriptionFilter).toBeCalled();
+		});
+    
+		test("when OVERRIDE_MANUAL_CONFIGS is false, should not replace manual configuration", async () => {
+			process.env.OVERRIDE_MANUAL_CONFIGS = "false";
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+    
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+
+			expect(mockDeleteSubscriptionFilter).not.toBeCalled();
+			expect(mockPutSubscriptionFilter).not.toBeCalled();
+		});
+    
+		test("when OVERRIDE_MANUAL_CONFIGS is not set, should not replace manual configuration", async () => {			
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
+			givenDescribeFiltersReturns("some-other-arn", "old-filter");
+    
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+
+			expect(mockDeleteSubscriptionFilter).not.toBeCalled();
+			expect(mockPutSubscriptionFilter).not.toBeCalled();
+		});
+	});
   
 	describe("error handling", () => {
 		test("it should retry retryable errors when listing log groups", async () => {
@@ -386,8 +432,10 @@ const givenDescribeLogGroupsReturns = (logGroups, hasMore = false) => {
 	});
 };
 
-const givenDescribeFiltersReturns = (arn) => {
-	const subscriptionFilters = arn ? [{ destinationArn: arn }] : [];
+const givenDescribeFiltersReturns = (arn, filterName = "ship-logs") => {
+	const subscriptionFilters = arn 
+		? [{ destinationArn: arn, filterName }] 
+		: [];
 
 	mockDescribeSubscriptionFilters.mockReturnValueOnce({
 		promise: () => Promise.resolve({
