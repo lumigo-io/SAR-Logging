@@ -18,9 +18,20 @@ const getRetryConfig = (onRetry) => (
 	}
 );
 
+const bailIfErrorNotRetryable = (bail) => (error) => {
+	if (!error.retryable) {
+		bail(error);
+	} else {
+		throw error;
+	}
+};
+
 const getTags = async (logGroupName) => {
 	const resp = await retry(
-		() => cloudWatchLogs.listTagsLogGroup({ logGroupName }).promise(),
+		(bail) => cloudWatchLogs
+			.listTagsLogGroup({ logGroupName })
+			.promise()
+			.catch(bailIfErrorNotRetryable(bail)),
 		getRetryConfig((err) => log.warn("retrying listTagsLogGroup after error...", { logGroupName }, err))
 	);
   
@@ -29,7 +40,10 @@ const getTags = async (logGroupName) => {
 
 const getSubscriptionFilter = async (logGroupName) => {
 	const resp = await retry(
-		() => cloudWatchLogs.describeSubscriptionFilters({ logGroupName }).promise(),
+		(bail) => cloudWatchLogs
+			.describeSubscriptionFilters({ logGroupName })
+			.promise()
+			.catch(bailIfErrorNotRetryable(bail)),
 		getRetryConfig((err) => log.warn("retrying describeSubscriptionFilter after error...", { logGroupName }, err))
 	);
     
@@ -55,14 +69,10 @@ const putSubscriptionFilter = async (logGroupName) => {
 	log.debug(JSON.stringify(req));
 
 	await retry(
-		(bail) => cloudWatchLogs.putSubscriptionFilter(req).promise().catch(err => {
-			if (err.code === "InvalidParameterException") {
-				// don't retry InvalidParameterException, we need to add Lambda permission to resolve these
-				bail(err); 
-			} else {
-				throw err;
-			}
-		}),
+		(bail) => cloudWatchLogs
+			.putSubscriptionFilter(req)
+			.promise()
+			.catch(bailIfErrorNotRetryable(bail)),
 		getRetryConfig((err) => log.warn("retrying putSubscriptionFilter after error...", { logGroupName }, err))
 	);
 
@@ -81,7 +91,10 @@ const getLogGroups = async () => {
     
 		try {
 			const resp = await retry(
-				() => cloudWatchLogs.describeLogGroups(req).promise(),
+				(bail) => cloudWatchLogs
+					.describeLogGroups(req)
+					.promise()
+					.catch(bailIfErrorNotRetryable(bail)),
 				getRetryConfig((err) => log.warn("retrying describeLogGroup after error...", { req }, err))
 			);
 			const logGroupNames = resp.logGroups.map(x => x.logGroupName);

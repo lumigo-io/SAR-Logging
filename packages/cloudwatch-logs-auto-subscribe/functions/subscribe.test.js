@@ -32,22 +32,13 @@ beforeEach(() => {
 	mockAddPermission.mockReturnValueOnce({
 		promise: () => Promise.resolve()
 	});
-  
-	mockListTagsLogGroup.mockReturnValueOnce({
-		promise: () => Promise.resolve({
-			tags: {
-				tag1: "value1",
-				tag2: "value2"
-			}
-		})
-	});
 });
 
 afterEach(() => {
-	mockPutSubscriptionFilter.mockClear();
-	mockDescribeLogGroups.mockClear();
-	mockDescribeSubscriptionFilters.mockClear();
-	mockListTagsLogGroup.mockClear();  
+	mockPutSubscriptionFilter.mockReset();
+	mockDescribeLogGroups.mockReset();
+	mockDescribeSubscriptionFilters.mockReset();
+	mockListTagsLogGroup.mockReset();
 });
 
 const givenPrefixIsDefined = () => process.env.PREFIX = "/aws/lambda/";
@@ -92,6 +83,17 @@ describe("new log group", () => {
 	});
 
 	describe("tags", () => {
+		beforeEach(() => {
+			mockListTagsLogGroup.mockReturnValueOnce({
+				promise: () => Promise.resolve({
+					tags: {
+						tag1: "value1",
+						tag2: "value2"
+					}
+				})
+			});
+		});
+
 		test("log group is subscribed if it contains at least one matching tag", async () => {
 			givenTagsIsDefined("tag2,tag3");
 			const handler = require("./subscribe").newLogGroups;
@@ -241,11 +243,18 @@ describe("existing log group", () => {
 		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
 		givenDescribeLogGroupsReturns(["/api/gateway/group1", "/api/gateway/group2"]);
 
-		mockListTagsLogGroup.mockClear();
-		givenListTagsReturns("tag2");         // group1 (replaced)
-		givenListTagsReturns("tag2", "tag3"); // group2 (replaced)
-		givenListTagsReturns("tag1");         // api group1 (ignored)
-		givenListTagsReturns();               // api group2 (ignored)
+		givenListTagsReturns({ 
+			tag2: "value2"
+		}); // group1 (replaced)
+		givenListTagsReturns({
+			tag2: "value2", 
+			tag3: "value3"
+		}); // group2 (replaced)
+		givenListTagsReturns({
+			tag1: "value1"
+		}); // api group1 (ignored)
+		givenListTagsReturns({
+		}); // api group2 (ignored)
 
 		givenDescribeFiltersReturns("some-other-arn"); // group1 (replaced)
 		givenDescribeFiltersReturns("some-other-arn"); // group2 (replaced)
@@ -270,14 +279,75 @@ describe("existing log group", () => {
 		expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
 	});
   
-	test("it should retry errors when listing log groups", async () => {
-		givenDescribeLogGroupsFailsWith("ThrottlingException", "Rate exceeded");
-		givenDescribeLogGroupsReturns([]);
+	describe("error handling", () => {
+		test("it should retry retryable errors when listing log groups", async () => {
+			givenDescribeLogGroupsFailsWith("ThrottlingException", "Rate exceeded");
+			givenDescribeLogGroupsReturns([]);
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockDescribeLogGroups).toBeCalledTimes(2);
+		});
+    
+		test("it should not retry non-retryable errors when listing log groups", async () => {
+			givenDescribeLogGroupsFailsWith("Foo", "Bar", false);
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).rejects;
+  
+			expect(mockDescribeLogGroups).toBeCalledTimes(1);
+		});
 
-		const handler = require("./subscribe").existingLogGroups;
-		await handler();
+		test("it should retry retryable errors when getting a log group's subscription filters", async () => {
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+      
+			givenDescribeFiltersFailsWith("ThrottlingException", "Rate exceeded");
+			givenDescribeFiltersReturns();
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockDescribeSubscriptionFilters).toBeCalledTimes(2);
+		});
 
-		expect(mockDescribeLogGroups).toBeCalledTimes(2);
+		test("it should not retry non-retryable errors when getting a log group's subscription filters", async () => {
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+      
+			givenDescribeFiltersFailsWith("Foo", "Bar", false);
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).resolves.toEqual(undefined);
+  
+			expect(mockDescribeSubscriptionFilters).toBeCalledTimes(1);
+		});
+
+		test("it should retry retryable errors when getting a log group's tags", async () => {
+			givenTagsIsDefined("tag1=value1");
+
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+      
+			givenListTagsFailsWith("ThrottlingException", "Rate exceeded");
+			givenListTagsReturns({ tag1: "value1" });
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await handler();
+  
+			expect(mockListTagsLogGroup).toBeCalledTimes(2);
+		});
+
+		test("it should not retry non-retryable errors when getting a log group's tags", async () => {
+			givenTagsIsDefined("tag1=value1");
+
+			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+      
+			givenListTagsFailsWith("Foo", "Bar", false);
+  
+			const handler = require("./subscribe").existingLogGroups;
+			await expect(handler()).resolves.toEqual(undefined);
+  
+			expect(mockListTagsLogGroup).toBeCalledTimes(1);
+		});
 	});
 });
 
@@ -287,17 +357,23 @@ const givenPutFilterFailsWith = (code, message) => {
 	});
 };
 
-const givenDescribeLogGroupsFailsWith = (code, message) => {
+const givenDescribeLogGroupsFailsWith = (code, message, retryable = true) => {
 	mockDescribeLogGroups.mockReturnValueOnce({
-		promise: () => Promise.reject(new AwsError(code, message))
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
 	});
 };
 
-const givenListTagsReturns = (...tags) => {
+const givenListTagsReturns = (tags) => {
 	mockListTagsLogGroup.mockReturnValueOnce({
 		promise: () => Promise.resolve({
 			tags
 		})
+	});
+};
+
+const givenListTagsFailsWith = (code, message, retryable = true) => {
+	mockListTagsLogGroup.mockReturnValueOnce({
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
 	});
 };
 
@@ -320,10 +396,17 @@ const givenDescribeFiltersReturns = (arn) => {
 	});
 };
 
+const givenDescribeFiltersFailsWith = (code, message, retryable = true) => {
+	mockDescribeSubscriptionFilters.mockReturnValueOnce({
+		promise: () => Promise.reject(new AwsError(code, message, retryable))
+	});
+};
+
 class AwsError extends Error {
-	constructor (code, message) {
+	constructor (code, message, retryable) {
 		super(message);
 
 		this.code = code;
+		this.retryable = retryable;
 	}
 }
