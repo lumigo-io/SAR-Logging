@@ -8,23 +8,29 @@ const isLambda = DESTINATION_ARN.startsWith("arn:aws:lambda");
 const filterName = FILTER_NAME || "ship-logs";
 const filterPattern = FILTER_PATTERN || "";
 
+const getRetryConfig = (onRetry) => (
+	{
+		retries: parseInt(process.env.RETRIES || "5"),
+		minTimeout: parseFloat(process.env.RETRY_MIN_TIMEOUT || "5000"),
+		maxTimeout: parseFloat(process.env.RETRY_MAX_TIMEOUT || "60000"),
+		factor: 2,
+		onRetry
+	}
+);
+
 const getTags = async (logGroupName) => {
-	const resp = await cloudWatchLogs
-		.listTagsLogGroup({ logGroupName })
-		.promise();    
+	const resp = await retry(
+		() => cloudWatchLogs.listTagsLogGroup({ logGroupName }).promise(),
+		getRetryConfig((err) => log.warn("retrying listTagsLogGroup after error...", { logGroupName }, err))
+	);
+  
 	return resp.tags;
 };
 
 const getSubscriptionFilter = async (logGroupName) => {
 	const resp = await retry(
 		() => cloudWatchLogs.describeSubscriptionFilters({ logGroupName }).promise(),
-		{
-			retries: 5,
-			minTimeout: 5000,
-			maxTimeout: 60000,
-			factor: 2,
-			onRetry: (err) => log.warn("retrying describeSubscriptionFilter after error...", { logGroupName }, err)
-		}
+		getRetryConfig((err) => log.warn("retrying describeSubscriptionFilter after error...", { logGroupName }, err))
 	);
     
 	if (resp.subscriptionFilters.length === 0) {
@@ -48,7 +54,17 @@ const putSubscriptionFilter = async (logGroupName) => {
 
 	log.debug(JSON.stringify(req));
 
-	await cloudWatchLogs.putSubscriptionFilter(req).promise();
+	await retry(
+		(bail) => cloudWatchLogs.putSubscriptionFilter(req).promise().catch(err => {
+			if (err.code === "InvalidParameterException") {
+				// don't retry InvalidParameterException, we need to add Lambda permission to resolve these
+				bail(err); 
+			} else {
+				throw err;
+			}
+		}),
+		getRetryConfig((err) => log.warn("retrying putSubscriptionFilter after error...", { logGroupName }, err))
+	);
 
 	log.info(`subscribed log group to [${DESTINATION_ARN}]`, {
 		logGroupName,
@@ -65,14 +81,9 @@ const getLogGroups = async () => {
     
 		try {
 			const resp = await retry(
-				() => cloudWatchLogs.describeLogGroups(req).promise(), 
-				{
-					retries: 10,
-					minTimeout: 5000,
-					maxTimeout: 60000,
-					factor: 2,
-					onRetry: (err) => log.warn("retrying describeLogGroup after error...", { req }, err)
-				});
+				() => cloudWatchLogs.describeLogGroups(req).promise(),
+				getRetryConfig((err) => log.warn("retrying describeLogGroup after error...", { req }, err))
+			);
 			const logGroupNames = resp.logGroups.map(x => x.logGroupName);
 			const newAcc = acc.concat(logGroupNames);
 
