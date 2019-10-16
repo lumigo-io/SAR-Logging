@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.7.0
+    SemanticVersion: 1.8.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Globals:
@@ -32,6 +32,9 @@ Globals:
         ROLE_ARN: !GetAtt CloudWatchToKinesisRole.Arn
         LOG_LEVEL: INFO
         OVERRIDE_MANUAL_CONFIGS: !Ref OverrideManualConfigs
+
+Conditions:
+  Unsubscribe: !Equals [!Ref UnsubscribeOnDelete, 'true']
 
 Resources:
   SubscribeNewLogGroups:
@@ -95,6 +98,23 @@ Resources:
             Action: iam:PassRole
             Resource: '*'
 
+  UnubscribeExistingLogGroups:
+    Type: AWS::Serverless::Function
+    Condition: Unsubscribe
+    Properties:
+      Handler: functions/subscribe.undo
+      Description: Undo the subscription filter for existing log groups.
+      Timeout: 900
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action: 
+              - logs:DeleteSubscriptionFilter
+              - logs:DescribeLogGroups
+              - logs:DescribeSubscriptionFilters
+              - logs:ListTagsLogGroup
+            Resource: '*'
+
   CloudWatchToKinesisRole:
     Type: AWS::IAM::Role
     Properties:
@@ -120,7 +140,7 @@ Resources:
     Properties:
       Location:
         ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/lambda-invocation-cfn-custom-resource
-        SemanticVersion: 1.1.0
+        SemanticVersion: 1.2.0
 
   # custom resource to invoke the SubscribeExistingLogGroups function during deployment
   InvokeSubscribeExistingLogGroups:
@@ -132,6 +152,19 @@ Resources:
       ServiceToken: !GetAtt LambdaInvocationCustomResource.Outputs.FunctionArn
       FunctionName: !Ref SubscribeExistingLogGroups
       InvocationType: Event # don't wait for the subscribe existing function to finish
+
+  # custom resource to invoke the UnubscribeExistingLogGroups function during deployment
+  InvokeUnsubscribeExistingLogGroups:
+    Type: Custom::LambdaInvocation
+    Condition: Unsubscribe
+    DependsOn:
+      - UnubscribeExistingLogGroups
+      - LambdaInvocationCustomResource
+    Properties:
+      ServiceToken: !GetAtt LambdaInvocationCustomResource.Outputs.FunctionArn
+      FunctionName: !Ref UnubscribeExistingLogGroups
+      InvocationType: RequestResponse # wait for the unsubscribe function to finish      
+      When: Delete # only run this during delete
 
 Parameters:
   DestinationArn:
@@ -203,5 +236,14 @@ Parameters:
     Description: >
       (optional) whether to replace any subscription filters that were added manually (judging by the
       fact they have different filter name).
+      Defaults to "false", allowed values are "true" or "false".
+  UnsubscribeOnDelete:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: >
+      (optional) whether to remove the subscription filters that were added by this app.
       Defaults to "false", allowed values are "true" or "false".
 

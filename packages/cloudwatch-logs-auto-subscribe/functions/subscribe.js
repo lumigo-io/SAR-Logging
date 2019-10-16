@@ -51,6 +51,19 @@ module.exports.newLogGroups = async (event) => {
 	}
 };
 
+module.exports.undo = async () => {
+	const logGroupNames = await cloudWatchLogs.getLogGroups();
+	for (const logGroupName of logGroupNames) {
+		try {
+			if (await filter(logGroupName)) {
+				await unsubscribe(logGroupName);
+			}
+		} catch(error) {
+			log.warn("cannot unsubscribe existing log group, skipped...", { logGroupName }, error);
+		}
+	}
+};
+
 const tagPredicates = tagsCsv =>
 	(tagsCsv || "")
 		.split(",")
@@ -155,5 +168,13 @@ const subscribe = async (logGroupName) => {
 		} else {
 			throw err;
 		}
+	}
+};
+
+const unsubscribe = async (logGroupName) => {
+	try {
+		await cloudWatchLogs.deleteSubscriptionFilter(logGroupName, FILTER_NAME);
+	} catch (err) {
+		log.error("failed to unsubscribe log group", { logGroupName }, err);
 	}
 };
