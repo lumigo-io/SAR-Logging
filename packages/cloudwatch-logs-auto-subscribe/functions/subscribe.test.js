@@ -601,6 +601,67 @@ describe("existing log group", () => {
 	});
 });
 
+describe("unsubscribe", () => {
+	test("should ignore groups that match the exclude prefix", async () => {
+		givenExcludePrefixIsDefined();
+
+		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
+		givenDescribeLogGroupsReturns(["/aws/lambda/exclude1", "/aws/lambda/exclude2"]);
+
+		const handler = require("./subscribe").undo;
+		await handler();
+
+		expect(mockDeleteSubscriptionFilter).toBeCalledTimes(2);
+	});
+
+	test("should unsubscribe groups that match prefix", async () => {
+		givenPrefixIsDefined();
+
+		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
+		givenDescribeLogGroupsReturns(["/api/gateway/group1", "/api/gateway/group2"]);
+
+		const handler = require("./subscribe").undo;
+		await handler();
+
+		expect(mockDeleteSubscriptionFilter).toBeCalledTimes(2);
+	});
+  
+	test("should unsubscribe groups that match both prefix and tags", async () => {
+		givenPrefixIsDefined();
+		givenTagsIsDefined("tag2,tag3");
+    
+		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
+		givenDescribeLogGroupsReturns(["/api/gateway/group1", "/api/gateway/group2"]);
+
+		givenListTagsReturns({ 
+			tag2: "value2"
+		}); // group1 (replaced)
+		givenListTagsReturns({
+			tag2: "value2", 
+			tag3: "value3"
+		}); // group2 (replaced)
+		givenListTagsReturns({
+			tag1: "value1"
+		}); // api group1 (ignored)
+		givenListTagsReturns({
+		}); // api group2 (ignored)
+
+		const handler = require("./subscribe").undo;
+		await handler();
+
+		expect(mockDeleteSubscriptionFilter).toBeCalledTimes(2);
+	});
+  
+	test("when there are no prefix nor suffix, everything is unsubscribed", async () => {
+		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"]);
+    
+		const handler = require("./subscribe").undo;
+		await handler();
+
+		expect(mockDeleteSubscriptionFilter).toBeCalledTimes(2);
+	});
+});
+
 const givenPutFilterFailsWith = (code, message) => {
 	mockPutSubscriptionFilter.mockReturnValueOnce({
 		promise: () => Promise.reject(new AwsError(code, message))
