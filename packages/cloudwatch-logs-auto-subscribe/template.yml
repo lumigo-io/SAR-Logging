@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.8.0
+    SemanticVersion: 1.9.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Globals:
@@ -152,6 +152,22 @@ Resources:
       ServiceToken: !GetAtt LambdaInvocationCustomResource.Outputs.FunctionArn
       FunctionName: !Ref SubscribeExistingLogGroups
       InvocationType: Event # don't wait for the subscribe existing function to finish
+      # this ties this custom resource to changes to the function's configuration
+      # so that when CloudFormation would detect this custom resource as "changed"
+      # and triggers "Update" event during deployment
+      Configurations:
+        PREFIX: !Ref Prefix
+        TAGS: !Ref Tags
+        TAGS_MODE: !Ref TagsMode
+        EXCLUDE_TAGS: !Ref ExcludeTags
+        EXCLUDE_TAGS_MODE: !Ref ExcludeTagsMode
+        EXCLUDE_PREFIX: !Ref ExcludePrefix
+        DESTINATION_ARN: !Ref DestinationArn
+        FILTER_NAME: !Ref FilterName
+        FILTER_PATTERN: !Ref FilterPattern
+        ROLE_ARN: !GetAtt CloudWatchToKinesisRole.Arn
+        LOG_LEVEL: INFO
+        OVERRIDE_MANUAL_CONFIGS: !Ref OverrideManualConfigs
 
   # custom resource to invoke the UnubscribeExistingLogGroups function during deployment
   InvokeUnsubscribeExistingLogGroups:

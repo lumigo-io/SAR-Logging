@@ -1,6 +1,6 @@
 # cloudwatch-logs-auto-subscribe
 
-[![Version](https://img.shields.io/badge/semver-1.8.0-blue)](template.yml)
+[![Version](https://img.shields.io/badge/semver-1.9.0-blue)](template.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 Subscribes **new and existing** CloudWatch log groups to Lambda/Kinesis/Firehose by ARN.
@@ -29,6 +29,7 @@ AutoSubscribeLogGroups:
       FilterName: <defaults to ship-logs>
       FilterPattern: <defaults to [timestamp=*Z, request_id="*-*", event]>
       OverrideManualConfigs: <optional, whether to override any filters that are added manually, true or false, defaults to false>
+      UnsubscribeOnDelete: <optional, whether to unsubscribe the filters that have been added, true or false, defaults to false>
 ```
 
 To do the same via `CloudFormation` or the `Serverless` framework, you need to first add the following `Transform`:
@@ -56,3 +57,5 @@ For more details, read this [post](https://theburningmonk.com/2019/05/how-to-inc
 `FilterPattern`: (Optional) if specified, will override the filter pattern used to create the subscription.
 
 `OverrideManualConfigs`: (Optional) whether to replace any subscription filters that were added manually (judging by the fact they have different filter name). Defaults to `false`, allowed values are `true` or `false`.
+
+`UnsubscribeOnDelete`: (Optional) whether to remove the subscription filters that were added by this app. Defaults to "false", allowed values are "true" or "false".
