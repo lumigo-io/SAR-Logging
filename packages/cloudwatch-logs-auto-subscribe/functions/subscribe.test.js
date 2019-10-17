@@ -25,12 +25,6 @@ beforeEach(() => {
 	process.env.EXCLUDE_TAGS_MODE = "OR";
 	process.env.DESTINATION_ARN = destinationArn;
 
-	delete process.env.PREFIX;
-	delete process.env.EXCLUDE_PREFIX;
-	delete process.env.TAGS;
-	delete process.env.EXCLUDE_TAGS;
-	delete process.env.OVERRIDE_MANUAL_CONFIGS;
-
 	mockPutSubscriptionFilter.mockReturnValue({
 		promise: () => Promise.resolve()
 	});
@@ -50,6 +44,12 @@ afterEach(() => {
 	mockDescribeLogGroups.mockReset();
 	mockDescribeSubscriptionFilters.mockReset();
 	mockListTagsLogGroup.mockReset();
+  
+	delete process.env.PREFIX;
+	delete process.env.EXCLUDE_PREFIX;
+	delete process.env.TAGS;
+	delete process.env.EXCLUDE_TAGS;
+	delete process.env.OVERRIDE_MANUAL_CONFIGS;
 });
 
 const givenPrefixIsDefined = () => process.env.PREFIX = "/aws/lambda/";
@@ -345,6 +345,19 @@ describe("new log group", () => {
 });
 
 describe("existing log group", () => {
+	test("when prefix is not specified, logGroupNamePrefix is ignored in describe log groups", async () => {
+		givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
+    
+		givenDescribeFiltersReturns(destinationArn); // group1 (ignored)
+
+		const handler = require("./subscribe").existingLogGroups;
+		await handler();
+    
+		expect(mockDescribeLogGroups).toBeCalledWith({
+			nextToken: undefined
+		});
+	});
+
 	test("should replace filters that are different", async () => {
 		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
 		givenDescribeLogGroupsReturns(["/aws/lambda/group3"]);

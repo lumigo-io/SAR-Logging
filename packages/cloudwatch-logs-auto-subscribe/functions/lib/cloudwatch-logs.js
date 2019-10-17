@@ -3,7 +3,7 @@ const cloudWatchLogs = new AWS.CloudWatchLogs();
 const log = require("@dazn/lambda-powertools-logger");
 const retry = require("async-retry");
 
-const { PREFIX, DESTINATION_ARN, FILTER_NAME, FILTER_PATTERN, ROLE_ARN } = process.env;
+const { DESTINATION_ARN, FILTER_NAME, FILTER_PATTERN, ROLE_ARN } = process.env;
 const isLambda = DESTINATION_ARN.startsWith("arn:aws:lambda");
 const filterName = FILTER_NAME || "ship-logs";
 const filterPattern = FILTER_PATTERN || "";
@@ -114,9 +114,12 @@ const deleteSubscriptionFilter = async (logGroupName, filterName) => {
 const getLogGroups = async () => {
 	const loop = async (nextToken, acc = []) => {
 		const req = {
-			nextToken: nextToken,
-			logGroupNamePrefix: PREFIX
+			nextToken: nextToken
 		};
+    
+		if (process.env.PREFIX) {
+			req.logGroupNamePrefix = process.env.PREFIX;
+		}
     
 		try {
 			const resp = await retry(
