@@ -362,14 +362,26 @@ describe("existing log group", () => {
 		givenDescribeLogGroupsReturns(["/aws/lambda/group1", "/aws/lambda/group2"], true);
 		givenDescribeLogGroupsReturns(["/aws/lambda/group3"]);
 
-		givenDescribeFiltersReturns(destinationArn); // group1 (ignored)
+		givenDescribeFiltersReturns(destinationArn, "ship-logs", "[event]"); // group1 (replaced)
 		givenDescribeFiltersReturns("some-other-arn"); // group2 (replaced)
 		givenDescribeFiltersReturns(); // group3 (replaced)
 
 		const handler = require("./subscribe").existingLogGroups;
 		await handler();
 
-		expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
+		expect(mockPutSubscriptionFilter).toBeCalledTimes(3);
+		const isReplaced = (logGroupName) => {
+			expect(mockPutSubscriptionFilter).toBeCalledWith({
+				destinationArn: destinationArn,
+				logGroupName,
+				filterName: "ship-logs",
+				filterPattern: ""
+			});
+		};
+    
+		isReplaced("/aws/lambda/group1");
+		isReplaced("/aws/lambda/group2");
+		isReplaced("/aws/lambda/group3");
 	});
 
 	test("should ignore groups that match the exclude prefix", async () => {
@@ -710,9 +722,9 @@ const givenDescribeLogGroupsReturns = (logGroups, hasMore = false) => {
 	});
 };
 
-const givenDescribeFiltersReturns = (arn, filterName = "ship-logs") => {
+const givenDescribeFiltersReturns = (arn, filterName = "ship-logs", filterPattern = "[]") => {
 	const subscriptionFilters = arn 
-		? [{ destinationArn: arn, filterName }] 
+		? [{ destinationArn: arn, filterName, filterPattern }] 
 		: [];
 
 	mockDescribeSubscriptionFilters.mockReturnValueOnce({

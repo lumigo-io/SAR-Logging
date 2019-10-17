@@ -3,6 +3,7 @@ const cloudWatchLogs = require("./lib/cloudwatch-logs");
 const log = require("@dazn/lambda-powertools-logger");
 
 const { FILTER_NAME, DESTINATION_ARN } = process.env;
+const FILTER_PATTERN = process.env.FILTER_PATTERN || "";
 
 module.exports.existingLogGroups = async () => {
 	const logGroupNames = await cloudWatchLogs.getLogGroups();
@@ -11,28 +12,34 @@ module.exports.existingLogGroups = async () => {
 			if (await filter(logGroupName)) {
 				const old = await cloudWatchLogs.getSubscriptionFilter(logGroupName);
 				if (!old) {
-					log.debug(`[${logGroupName}] doesn't have a filter yet`);
-          
+					log.debug(`[${logGroupName}] doesn't have a filter yet`);          
 					await subscribe(logGroupName);
-				} else if (old.destinationArn !== DESTINATION_ARN && old.filterName === FILTER_NAME) {
-					log.debug(`[${logGroupName}] has an old destination ARN [${old.destinationArn}], updating...`, {
+				} else if (old.filterName !== FILTER_NAME && process.env.OVERRIDE_MANUAL_CONFIGS !== "true") {
+					log.info(`[${logGroupName}] has an old subscription filter that was added manually, skipped...`, {
 						logGroupName,
 						oldArn: old.destinationArn,
-						arn: DESTINATION_ARN
-					});
-          
-					await subscribe(logGroupName);
-				} else if (old.destinationArn !== DESTINATION_ARN && process.env.OVERRIDE_MANUAL_CONFIGS === "true") {
-					log.info(`[${logGroupName}] has an old destination ARN [${old.destinationArn}] that was added manually, replacing...`, {
-						logGroupName,
-						oldArn: old.destinationArn,
+						oldFilterPattner: old.filterPattern,
 						oldFilterName: old.filterName,
 						arn: DESTINATION_ARN,
-						filterName: FILTER_NAME
+						filterName: FILTER_NAME,
+						filterPattern: FILTER_PATTERN
+					});
+					continue;
+				} else if (old.filterName !== FILTER_NAME) {
+					log.info(`[${logGroupName}] has an old subscription filter that was added manually, replacing...`, {
+						logGroupName,
+						oldArn: old.destinationArn,
+						oldFilterPattner: old.filterPattern,
+						oldFilterName: old.filterName,
+						arn: DESTINATION_ARN,
+						filterName: FILTER_NAME,
+						filterPattern: FILTER_PATTERN
 					});
 
 					await cloudWatchLogs.deleteSubscriptionFilter(logGroupName, old.filterName);
 					await subscribe(logGroupNames);
+				} else {
+					await subscribe(logGroupName);
 				}
 			}
 		} catch(error) {
