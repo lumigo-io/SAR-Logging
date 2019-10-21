@@ -37,7 +37,7 @@ module.exports.existingLogGroups = async () => {
 					});
 
 					await cloudWatchLogs.deleteSubscriptionFilter(logGroupName, old.filterName);
-					await subscribe(logGroupNames);
+					await subscribe(logGroupName);
 				} else {
 					await subscribe(logGroupName);
 				}
