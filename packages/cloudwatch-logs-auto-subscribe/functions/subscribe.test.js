@@ -471,7 +471,12 @@ describe("existing log group", () => {
 			await handler();
 
 			expect(mockDeleteSubscriptionFilter).toBeCalled();
-			expect(mockPutSubscriptionFilter).toBeCalled();
+			expect(mockPutSubscriptionFilter).toBeCalledWith({
+				destinationArn: destinationArn,
+				logGroupName: "/aws/lambda/group1",
+				filterName: "ship-logs",
+				filterPattern: ""
+			});
 		});
     
 		test("when OVERRIDE_MANUAL_CONFIGS is false, should not replace manual configuration", async () => {
