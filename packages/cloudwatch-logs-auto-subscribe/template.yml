@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.10.0
+    SemanticVersion: 1.11.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Globals:
@@ -73,6 +73,11 @@ Resources:
                 eventName:
                   - CreateLogGroup
 
+  SubscribeNewLogGroupsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${SubscribeNewLogGroups}
+
   SubscribeExistingLogGroups:
     Type: AWS::Serverless::Function
     Properties:
@@ -98,6 +103,11 @@ Resources:
             Action: iam:PassRole
             Resource: '*'
 
+  SubscribeExistingLogGroupsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${SubscribeExistingLogGroups}
+
   UnubscribeExistingLogGroups:
     Type: AWS::Serverless::Function
     Condition: Unsubscribe
@@ -114,6 +124,11 @@ Resources:
               - logs:DescribeSubscriptionFilters
               - logs:ListTagsLogGroup
             Resource: '*'
+
+  UnubscribeExistingLogGroupsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${UnubscribeExistingLogGroups}
 
   CloudWatchToKinesisRole:
     Type: AWS::IAM::Role
@@ -140,7 +155,7 @@ Resources:
     Properties:
       Location:
         ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/lambda-invocation-cfn-custom-resource
-        SemanticVersion: 1.3.0
+        SemanticVersion: 1.4.0
 
   # custom resource to invoke the SubscribeExistingLogGroups function during deployment
   InvokeSubscribeExistingLogGroups:
@@ -262,4 +277,3 @@ Parameters:
     Description: >
       (optional) whether to remove the subscription filters that were added by this app.
       Defaults to "false", allowed values are "true" or "false".
-
