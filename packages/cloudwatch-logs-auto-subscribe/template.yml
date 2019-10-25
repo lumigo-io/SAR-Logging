@@ -46,7 +46,7 @@ Resources:
       Policies:
         - Statement:
             Effect: Allow
-            Action: 
+            Action:
               - logs:PutSubscriptionFilter
               - logs:ListTagsLogGroup
             Resource: '*'
@@ -87,7 +87,7 @@ Resources:
       Policies:
         - Statement:
             Effect: Allow
-            Action: 
+            Action:
               - logs:PutSubscriptionFilter
               - logs:DeleteSubscriptionFilter
               - logs:DescribeLogGroups
@@ -108,7 +108,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${SubscribeExistingLogGroups}
 
-  UnubscribeExistingLogGroups:
+  UnsubscribeExistingLogGroups:
     Type: AWS::Serverless::Function
     Condition: Unsubscribe
     Properties:
@@ -118,17 +118,18 @@ Resources:
       Policies:
         - Statement:
             Effect: Allow
-            Action: 
+            Action:
               - logs:DeleteSubscriptionFilter
               - logs:DescribeLogGroups
               - logs:DescribeSubscriptionFilters
               - logs:ListTagsLogGroup
             Resource: '*'
 
-  UnubscribeExistingLogGroupsLogGroup:
+  UnsubscribeExistingLogGroupsLogGroup:
     Type: AWS::Logs::LogGroup
+    Condition: Unsubscribe
     Properties:
-      LogGroupName: !Sub /aws/lambda/${UnubscribeExistingLogGroups}
+      LogGroupName: !Sub /aws/lambda/${UnsubscribeExistingLogGroups}
 
   CloudWatchToKinesisRole:
     Type: AWS::IAM::Role
@@ -137,7 +138,7 @@ Resources:
         Statement:
           Effect: Allow
           Action: sts:AssumeRole
-          Principal: 
+          Principal:
             Service: !Sub logs.${AWS::Region}.amazonaws.com
       Policies:
         - PolicyName: root
@@ -184,29 +185,29 @@ Resources:
         LOG_LEVEL: INFO
         OVERRIDE_MANUAL_CONFIGS: !Ref OverrideManualConfigs
 
-  # custom resource to invoke the UnubscribeExistingLogGroups function during deployment
+  # custom resource to invoke the UnsubscribeExistingLogGroups function during deployment
   InvokeUnsubscribeExistingLogGroups:
     Type: Custom::LambdaInvocation
     Condition: Unsubscribe
     DependsOn:
-      - UnubscribeExistingLogGroups
+      - UnsubscribeExistingLogGroups
       - LambdaInvocationCustomResource
     Properties:
       ServiceToken: !GetAtt LambdaInvocationCustomResource.Outputs.FunctionArn
-      FunctionName: !Ref UnubscribeExistingLogGroups
-      InvocationType: RequestResponse # wait for the unsubscribe function to finish      
+      FunctionName: !Ref UnsubscribeExistingLogGroups
+      InvocationType: RequestResponse # wait for the unsubscribe function to finish
       When: Delete # only run this during delete
 
 Parameters:
   DestinationArn:
-    Type: String    
+    Type: String
     Description: >
       The ARN of the Lambda function or Kinesis stream to subscribe a newly created CloudWatch log group to.
   Prefix:
     Type: String
     Default: ''
     Description: >
-      (Optional) if specified then only log groups with the prefix will be subscribed. 
+      (Optional) if specified then only log groups with the prefix will be subscribed.
       E.g. '/aws/lambda/' will subscribe only Lambda function logs
   Tags:
     Type: String
