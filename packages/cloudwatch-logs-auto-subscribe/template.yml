@@ -42,7 +42,7 @@ Resources:
     Properties:
       Handler: functions/subscribe.newLogGroups
       Description: Subscribes a newly create CloudWatch log group to the specified ARN
-      Timeout: 6
+      Timeout: 900
       Policies:
         - Statement:
             Effect: Allow
