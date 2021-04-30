@@ -3,7 +3,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/node:10.16.0
+      - image: circleci/node:lts
     working_directory: ~/repo
     steps:
       - checkout
@@ -15,7 +15,7 @@ jobs:
 
   deploy:
     docker:
-      - image: nikolaik/python-nodejs:python3.7-nodejs10
+      - image: nikolaik/python-nodejs:python3.7-nodejs14
     working_directory: ~/repo
     steps:
       - checkout

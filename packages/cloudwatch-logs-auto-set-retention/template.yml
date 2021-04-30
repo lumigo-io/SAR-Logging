@@ -9,14 +9,14 @@ Metadata:
     SpdxLicenseId: Apache-2.0
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
-    Labels: ['cloudwatch', 'logs', 'ops', 'devops']
-    HomePageUrl: https://github.com/lumigo/SAR-Logging
+    Labels: ["cloudwatch", "logs", "ops", "devops"]
+    HomePageUrl: https://github.com/Cazoo-uk/SAR-Logging
     SemanticVersion: 1.4.0
-    SourceCodeUrl: https://github.com/lumigo/SAR-Logging
+    SourceCodeUrl: https://github.com/Cazoo-uk/SAR-Logging
 
 Globals:
   Function:
-    Runtime: nodejs10.x
+    Runtime: nodejs14.x
     MemorySize: 128
     Environment:
       Variables:
@@ -26,6 +26,7 @@ Resources:
   SetRetentionForNewLogGroups:
     Type: AWS::Serverless::Function
     Properties:
+      CodeUri: s3://auto-set-log-group-retention/SetRetentionForNew.zip
       Handler: functions/set-retention.newLogGroups
       Description: Updates the retention policy for a newly create CloudWatch log group to the specified number of days.
       Timeout: 6
@@ -33,7 +34,7 @@ Resources:
         - Statement:
             Effect: Allow
             Action: logs:PutRetentionPolicy
-            Resource: '*'
+            Resource: "*"
       Events:
         SubscribeEvent:
           Type: CloudWatchEvent
@@ -57,6 +58,7 @@ Resources:
   SetRetentionForExistingLogGroups:
     Type: AWS::Serverless::Function
     Properties:
+      CodeUri: s3://auto-set-log-group-retention/SetRetentionForExisting.zip
       Handler: functions/set-retention.existingLogGroups
       Description: Updates the retention policy for existing log groups to match the configured number of days.
       Timeout: 900
@@ -66,7 +68,7 @@ Resources:
             Action:
               - logs:PutRetentionPolicy
               - logs:DescribeLogGroups
-            Resource: '*'
+            Resource: "*"
 
   SetRetentionForExistingLogGroupsLogGroup:
     Type: AWS::Logs::LogGroup

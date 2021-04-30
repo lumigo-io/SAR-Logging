@@ -9,14 +9,14 @@ Metadata:
     SpdxLicenseId: Apache-2.0
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
-    Labels: ['cloudwatch', 'logs', 'ops', 'devops']
-    HomePageUrl: https://github.com/lumigo/SAR-Logging
+    Labels: ["cloudwatch", "logs", "ops", "devops"]
+    HomePageUrl: https://github.com/Cazoo-uk/SAR-Logging
     SemanticVersion: 1.11.1
-    SourceCodeUrl: https://github.com/lumigo/SAR-Logging
+    SourceCodeUrl: https://github.com/Cazoo-uk/SAR-Logging
 
 Globals:
   Function:
-    Runtime: nodejs10.x
+    Runtime: nodejs14.x
     MemorySize: 128
     Environment:
       Variables:
@@ -34,7 +34,7 @@ Globals:
         OVERRIDE_MANUAL_CONFIGS: !Ref OverrideManualConfigs
 
 Conditions:
-  Unsubscribe: !Equals [!Ref UnsubscribeOnDelete, 'true']
+  Unsubscribe: !Equals [!Ref UnsubscribeOnDelete, "true"]
 
 Resources:
   SubscribeNewLogGroups:
@@ -49,15 +49,15 @@ Resources:
             Action:
               - logs:PutSubscriptionFilter
               - logs:ListTagsLogGroup
-            Resource: '*'
+            Resource: "*"
         - Statement:
             Effect: Allow
             Action: lambda:AddPermission
-            Resource: '*'
+            Resource: "*"
         - Statement: # required for subscribing to a Kinesis stream
             Effect: Allow
             Action: iam:PassRole
-            Resource: '*'
+            Resource: "*"
       Events:
         SubscribeEvent:
           Type: CloudWatchEvent
@@ -93,15 +93,15 @@ Resources:
               - logs:DescribeLogGroups
               - logs:DescribeSubscriptionFilters
               - logs:ListTagsLogGroup
-            Resource: '*'
+            Resource: "*"
         - Statement:
             Effect: Allow
             Action: lambda:AddPermission
-            Resource: '*'
+            Resource: "*"
         - Statement: # required for subscribing to a Kinesis stream
             Effect: Allow
             Action: iam:PassRole
-            Resource: '*'
+            Resource: "*"
 
   SubscribeExistingLogGroupsLogGroup:
     Type: AWS::Logs::LogGroup
@@ -123,7 +123,7 @@ Resources:
               - logs:DescribeLogGroups
               - logs:DescribeSubscriptionFilters
               - logs:ListTagsLogGroup
-            Resource: '*'
+            Resource: "*"
 
   UnsubscribeExistingLogGroupsLogGroup:
     Type: AWS::Logs::LogGroup
@@ -143,13 +143,13 @@ Resources:
       Policies:
         - PolicyName: root
           PolicyDocument:
-            Version : '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
                   - kinesis:put*
                   - firehose:put*
-                Resource: '*'
+                Resource: "*"
 
   LambdaInvocationCustomResource:
     Type: AWS::Serverless::Application
@@ -205,13 +205,13 @@ Parameters:
       The ARN of the Lambda function or Kinesis stream to subscribe a newly created CloudWatch log group to.
   Prefix:
     Type: String
-    Default: ''
+    Default: ""
     Description: >
       (Optional) if specified then only log groups with the prefix will be subscribed.
       E.g. '/aws/lambda/' will subscribe only Lambda function logs
   Tags:
     Type: String
-    Default: ''
+    Default: ""
     Description: >
       (Optional) specify a common separated list of tags to whitelist log groups with, e.g. 'tag1=value1,tag2,tag3'
       Which can test for the existence of a tag (e.g. 'tag2'), and can also test the value of the tag too
@@ -219,16 +219,16 @@ Parameters:
       Whether the tests are treated with 'AND' or 'OR' semantics depends on the TagMode parameter.
   TagsMode:
     Type: String
-    Default: 'OR'
+    Default: "OR"
     AllowedValues:
-      - 'AND'
-      - 'OR'
+      - "AND"
+      - "OR"
     Description: >
       (Optional) controls how to combine the different tag tests, whether to join them using AND or OR semantic.
       Allowed values are "AND" or "OR". Defaults to "OR".
   ExcludeTags:
     Type: String
-    Default: ''
+    Default: ""
     Description: >
       (Optional) specify a common separated list of tags to blacklist log groups with, e.g. 'tag1=value1,tag2,tag3'
       Which can test for the existence of a tag (e.g. 'tag2'), and can also test the value of the tag too
@@ -236,16 +236,16 @@ Parameters:
       Whether the tests are treated with 'AND' or 'OR' semantics depends on the ExcludeTagMode parameter.
   ExcludeTagsMode:
     Type: String
-    Default: 'OR'
+    Default: "OR"
     AllowedValues:
-      - 'AND'
-      - 'OR'
+      - "AND"
+      - "OR"
     Description: >
       (Optional) controls how to combine the different exclude tag tests, whether to join them using AND or OR semantic.
       Allowed values are "AND" or "OR". Defaults to "OR".
   FilterName:
     Type: String
-    Default: 'ship-logs'
+    Default: "ship-logs"
     Description: >
       (Optional) if specified, will override the filter name for the subscription.
   FilterPattern:
@@ -255,7 +255,7 @@ Parameters:
       (Optional) if specified, will override the filter pattern used to create the subscription.
   ExcludePrefix:
     Type: String
-    Default: ''
+    Default: ""
     Description: >
       (Optional) if specified then log groups that match the prefix will not be subscribed.
       E.g. '/aws/lambda/my-function-' will exclude Lambda function logs for functions that start with 'my-function-'

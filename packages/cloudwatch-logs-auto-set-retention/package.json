@@ -1,22 +1,25 @@
 {
-    "name": "cloudwatch-logs-auto-set-retention",
-    "private": true,
-    "version": "1.0.0",
-    "description": "",
-    "main": "index.js",
-    "scripts": {
-        "test": "jest",
-        "package": "sam package --template-file template.yml --output-template-file packaged.yml --s3-bucket sar-logging-set-retention",
-        "publish": "sam publish --template packaged.yml --region us-east-1"
-    },
-    "author": "Yan Cui",
-    "license": "MIT",
-    "devDependencies": {
-        "jest": "^24.8.0"
-    },
-    "dependencies": {
-        "@dazn/lambda-powertools-logger": "^1.9.0",
-        "async-retry": "^1.2.3",
-        "aws-sdk": "^2.420.0"
-    }
+  "name": "cloudwatch-logs-auto-set-retention",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "package": "sam package --template-file template.yml --output-template-file packaged.yml --s3-bucket sar-logging-set-retention",
+    "publish": "sam publish --template packaged.yml --region us-east-1"
+  },
+  "author": "Yan Cui",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^24.8.0"
+  },
+  "dependencies": {
+    "@dazn/lambda-powertools-logger": "^1.9.0",
+    "async-retry": "^1.2.3",
+    "aws-sdk": "^2.420.0"
+  },
+  "engines": {
+    "node": ">=14.16.1"
+  }
 }

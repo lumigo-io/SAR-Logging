@@ -1,24 +1,27 @@
 {
-    "name": "cloudwatch-logs-auto-subscribe",
-    "private": true,
-    "version": "1.0.0",
-    "description": "",
-    "main": "index.js",
-    "scripts": {
-        "test": "jest",
-        "package": "sam package --template-file template.yml --output-template-file packaged.yml --s3-bucket sar-logging-subscribe",
-        "publish": "sam publish --template packaged.yml --region us-east-1"
-    },
-    "author": "Yan Cui",
-    "license": "MIT",
-    "devDependencies": {
-        "jest": "^24.8.0"
-    },
-    "dependencies": {
-        "@dazn/lambda-powertools-logger": "^1.9.0",
-        "@hapi/joi": "^15.1.1",
-        "async-retry": "^1.2.3",
-        "aws-sdk": "^2.420.0",
-        "uuid": "^3.3.2"
-    }
+  "name": "cloudwatch-logs-auto-subscribe",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "package": "sam package --template-file template.yml --output-template-file packaged.yml --s3-bucket sar-logging-subscribe",
+    "publish": "sam publish --template packaged.yml --region us-east-1"
+  },
+  "author": "Yan Cui",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^24.8.0"
+  },
+  "dependencies": {
+    "@dazn/lambda-powertools-logger": "^1.9.0",
+    "@hapi/joi": "^15.1.1",
+    "async-retry": "^1.2.3",
+    "aws-sdk": "^2.420.0",
+    "uuid": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=14.16.1"
+  }
 }
