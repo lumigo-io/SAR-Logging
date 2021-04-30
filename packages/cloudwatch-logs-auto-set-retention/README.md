@@ -1,13 +1,13 @@
 # cloudwatch-logs-auto-set-retention
 
-[![Version](https://img.shields.io/badge/semver-1.4.0-blue)](template.yml)
+[![Version](https://img.shields.io/badge/semver-1.0.0-blue)](template.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 Updates the retention policy for **new and existing** CloudWatch log groups to the specified number of days.
 
 ## Deploying to your account (via the console)
 
-Go to this [page](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:374852340823:applications~auto-set-log-group-retention) and click the Deploy button.
+Go to this [page](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:eu-west-1:571578941547:applications/auto-set-log-group-retention) and click the Deploy button.
 
 ## Deploying via SAM/Serverless framework/CloudFormation
 

@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ["cloudwatch", "logs", "ops", "devops"]
     HomePageUrl: https://github.com/Cazoo-uk/SAR-Logging
-    SemanticVersion: 1.4.0
+    SemanticVersion: 1.0.0
     SourceCodeUrl: https://github.com/Cazoo-uk/SAR-Logging
 
 Globals:
@@ -26,7 +26,7 @@ Resources:
   SetRetentionForNewLogGroups:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://auto-set-log-group-retention/SetRetentionForNew.zip
+      CodeUri: s3://cazoo-auto-set-log-group-retention/SetRetentionForNew.zip
       Handler: functions/set-retention.newLogGroups
       Description: Updates the retention policy for a newly create CloudWatch log group to the specified number of days.
       Timeout: 6
@@ -58,7 +58,7 @@ Resources:
   SetRetentionForExistingLogGroups:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://auto-set-log-group-retention/SetRetentionForExisting.zip
+      CodeUri: s3://cazoo-auto-set-log-group-retention/SetRetentionForExisting.zip
       Handler: functions/set-retention.existingLogGroups
       Description: Updates the retention policy for existing log groups to match the configured number of days.
       Timeout: 900
@@ -79,8 +79,8 @@ Resources:
     Type: AWS::Serverless::Application
     Properties:
       Location:
-        ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/lambda-invocation-cfn-custom-resource
-        SemanticVersion: 1.4.0
+        ApplicationId: arn:aws:serverlessrepo:eu-west-1:571578941547:applications/lambda-invocation-cfn-custom-resource
+        SemanticVersion: 1.0.0
 
   # custom resource to invoke the SubscribeExistingLogGroups function during deployment
   InvokeSetRetentionForExistingLogGroups:

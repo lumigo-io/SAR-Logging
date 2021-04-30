@@ -6,8 +6,8 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "package": "sam package --template-file template.yml --output-template-file packaged.yml --s3-bucket sar-logging-set-retention",
-    "publish": "sam publish --template packaged.yml --region us-east-1"
+    "package": "sam package --template-file template.yml --output-template-file packaged.yml --s3-bucket cazoo-auto-set-log-group-retention",
+    "publish": "sam publish --template packaged.yml --region eu-west-1"
   },
   "author": "Yan Cui",
   "license": "MIT",
