@@ -36,10 +36,10 @@ workflows:
       - build:
           filters:
             branches:
-              only: deploy
+              only: master
       - deploy:
           requires:
             - build
           filters:
             branches:
-              only: deploy
+              only: master
