@@ -8,11 +8,8 @@ jobs:
     steps:
       - checkout
       - run: npm ci
-      - run: npm run install
       - run: npm run test:lint
       - run: npm run test
-      - run: npm run codecov
-
   deploy:
     docker:
       - image: nikolaik/python-nodejs:python3.7-nodejs14
@@ -22,12 +19,11 @@ jobs:
       - run: pip install awscli
       - run: pip install aws-sam-cli
       - run: npm ci
-      - run: npm run install
       - run: npm run package
       - run: npm run publish
 
 workflows:
-  # version: 2
+  version: 2
   build:
     jobs:
       - build:
