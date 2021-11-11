@@ -16,7 +16,7 @@ Metadata:
 
 Globals:
   Function:
-    Runtime: nodejs10.x
+    Runtime: nodejs14.x
     MemorySize: 128
     Environment:
       Variables:
