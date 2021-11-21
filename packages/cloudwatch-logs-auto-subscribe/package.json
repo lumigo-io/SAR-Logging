@@ -18,7 +18,7 @@
         "@dazn/lambda-powertools-logger": "^1.9.0",
         "@hapi/joi": "^15.1.1",
         "async-retry": "^1.2.3",
-        "aws-sdk": "^2.420.0",
+        "aws-sdk": "^2.814.0",
         "uuid": "^3.3.2"
     }
 }
