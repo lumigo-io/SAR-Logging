@@ -11,12 +11,12 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.11.1
+    SemanticVersion: 1.12.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Globals:
   Function:
-    Runtime: nodejs10.x
+    Runtime: nodejs14.x
     MemorySize: 128
     Environment:
       Variables:
@@ -42,7 +42,7 @@ Resources:
     Properties:
       Handler: functions/subscribe.newLogGroups
       Description: Subscribes a newly create CloudWatch log group to the specified ARN
-      Timeout: 6
+      Timeout: !Ref TimeOut
       Policies:
         - Statement:
             Effect: Allow
@@ -83,7 +83,7 @@ Resources:
     Properties:
       Handler: functions/subscribe.existingLogGroups
       Description: Subscribes existing log groups to the specified destination ARN.
-      Timeout: 900
+      Timeout: !Ref TimeOut
       Policies:
         - Statement:
             Effect: Allow
@@ -114,7 +114,7 @@ Resources:
     Properties:
       Handler: functions/subscribe.undo
       Description: Undo the subscription filter for existing log groups.
-      Timeout: 900
+      Timeout: !Ref TimeOut
       Policies:
         - Statement:
             Effect: Allow
@@ -156,7 +156,7 @@ Resources:
     Properties:
       Location:
         ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/lambda-invocation-cfn-custom-resource
-        SemanticVersion: 1.4.0
+        SemanticVersion: 1.5.0
 
   # custom resource to invoke the SubscribeExistingLogGroups function during deployment
   InvokeSubscribeExistingLogGroups:
@@ -278,3 +278,8 @@ Parameters:
     Description: >
       (optional) whether to remove the subscription filters that were added by this app.
       Defaults to "false", allowed values are "true" or "false".
+  TimeOut:
+    Type: Number
+    Default: 6
+    Description: >
+      (optional) whether to increase the default lambda timeout".
