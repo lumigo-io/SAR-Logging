@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.12.0
+    SemanticVersion: 1.13.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Globals:
@@ -31,7 +31,6 @@ Globals:
         FILTER_PATTERN: !Ref FilterPattern
         ROLE_ARN: !GetAtt CloudWatchToKinesisRole.Arn
         LOG_LEVEL: INFO
-        OVERRIDE_MANUAL_CONFIGS: !Ref OverrideManualConfigs
 
 Conditions:
   Unsubscribe: !Equals [!Ref UnsubscribeOnDelete, 'true']
@@ -183,7 +182,6 @@ Resources:
         FILTER_PATTERN: !Ref FilterPattern
         ROLE_ARN: !GetAtt CloudWatchToKinesisRole.Arn
         LOG_LEVEL: INFO
-        OVERRIDE_MANUAL_CONFIGS: !Ref OverrideManualConfigs
 
   # custom resource to invoke the UnsubscribeExistingLogGroups function during deployment
   InvokeUnsubscribeExistingLogGroups:
@@ -259,16 +257,6 @@ Parameters:
     Description: >
       (Optional) if specified then log groups that match the prefix will not be subscribed.
       E.g. '/aws/lambda/my-function-' will exclude Lambda function logs for functions that start with 'my-function-'
-  OverrideManualConfigs:
-    Type: String
-    Default: "false"
-    AllowedValues:
-      - "true"
-      - "false"
-    Description: >
-      (optional) whether to replace any subscription filters that were added manually (judging by the
-      fact they have different filter name).
-      Defaults to "false", allowed values are "true" or "false".
   UnsubscribeOnDelete:
     Type: String
     Default: "false"
