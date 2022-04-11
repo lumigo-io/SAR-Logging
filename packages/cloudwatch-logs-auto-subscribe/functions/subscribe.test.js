@@ -49,7 +49,6 @@ afterEach(() => {
 	delete process.env.EXCLUDE_PREFIX;
 	delete process.env.TAGS;
 	delete process.env.EXCLUDE_TAGS;
-	delete process.env.OVERRIDE_MANUAL_CONFIGS;
 });
 
 const givenPrefixIsDefined = () => process.env.PREFIX = "/aws/lambda/";
@@ -460,48 +459,6 @@ describe("existing log group", () => {
 
 		expect(mockPutSubscriptionFilter).toBeCalledTimes(2);
 	});
-
-	describe("OVERRIDE_MANUAL_CONFIGS", () => {
-		test("when OVERRIDE_MANUAL_CONFIGS is true, should replace manual configuration", async () => {
-			process.env.OVERRIDE_MANUAL_CONFIGS = "true";
-			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
-			givenDescribeFiltersReturns("some-other-arn", "old-filter");
-    
-			const handler = require("./subscribe").existingLogGroups;
-			await handler();
-
-			expect(mockDeleteSubscriptionFilter).toBeCalled();
-			expect(mockPutSubscriptionFilter).toBeCalledWith({
-				destinationArn: destinationArn,
-				logGroupName: "/aws/lambda/group1",
-				filterName: "ship-logs",
-				filterPattern: ""
-			});
-		});
-    
-		test("when OVERRIDE_MANUAL_CONFIGS is false, should not replace manual configuration", async () => {
-			process.env.OVERRIDE_MANUAL_CONFIGS = "false";
-			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
-			givenDescribeFiltersReturns("some-other-arn", "old-filter");
-    
-			const handler = require("./subscribe").existingLogGroups;
-			await handler();
-
-			expect(mockDeleteSubscriptionFilter).not.toBeCalled();
-			expect(mockPutSubscriptionFilter).not.toBeCalled();
-		});
-    
-		test("when OVERRIDE_MANUAL_CONFIGS is not set, should not replace manual configuration", async () => {			
-			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
-			givenDescribeFiltersReturns("some-other-arn", "old-filter");
-    
-			const handler = require("./subscribe").existingLogGroups;
-			await handler();
-
-			expect(mockDeleteSubscriptionFilter).not.toBeCalled();
-			expect(mockPutSubscriptionFilter).not.toBeCalled();
-		});
-	});
   
 	describe("error handling", () => {
 		test("it should retry retryable errors when listing log groups", async () => {
@@ -521,29 +478,6 @@ describe("existing log group", () => {
 			await expect(handler()).rejects;
   
 			expect(mockDescribeLogGroups).toBeCalledTimes(1);
-		});
-
-		test("it should retry retryable errors when getting a log group's subscription filters", async () => {
-			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
-      
-			givenDescribeFiltersFailsWith("ThrottlingException", "Rate exceeded");
-			givenDescribeFiltersReturns();
-  
-			const handler = require("./subscribe").existingLogGroups;
-			await handler();
-  
-			expect(mockDescribeSubscriptionFilters).toBeCalledTimes(2);
-		});
-
-		test("it should not retry non-retryable errors when getting a log group's subscription filters", async () => {
-			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);
-      
-			givenDescribeFiltersFailsWith("Foo", "Bar", false);
-  
-			const handler = require("./subscribe").existingLogGroups;
-			await expect(handler()).resolves.toEqual(undefined);
-  
-			expect(mockDescribeSubscriptionFilters).toBeCalledTimes(1);
 		});
 
 		test("it should retry retryable errors when getting a log group's tags", async () => {
@@ -598,35 +532,6 @@ describe("existing log group", () => {
 			await expect(handler()).resolves.toEqual(undefined);
   
 			expect(mockPutSubscriptionFilter).toBeCalledTimes(1);
-		});
-    
-		test("it should retry retryable errors when deleting subscription filter", async () => {
-			process.env.OVERRIDE_MANUAL_CONFIGS = "true";
-			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
-			givenDescribeFiltersReturns("some-other-arn", "old-filter");
-      
-			mockDeleteSubscriptionFilter.mockReset();
-			givenDeleteSubscriptionFilterFailsWith("ThrottlingException", "Rate exceeded");
-			givenDeleteSubscriptionFilterSucceeds();
-  
-			const handler = require("./subscribe").existingLogGroups;
-			await handler();
-  
-			expect(mockDeleteSubscriptionFilter).toBeCalledTimes(2);
-		});
-
-		test("it should not retry non-retryable errors when deleting subscription filter", async () => {
-			process.env.OVERRIDE_MANUAL_CONFIGS = "true";
-			givenDescribeLogGroupsReturns(["/aws/lambda/group1"]);    
-			givenDescribeFiltersReturns("some-other-arn", "old-filter");
-      
-			mockDeleteSubscriptionFilter.mockReset();
-			givenDeleteSubscriptionFilterFailsWith("Foo", "Bar", false);
-
-			const handler = require("./subscribe").existingLogGroups;
-			await expect(handler()).resolves.toEqual(undefined);
-  
-			expect(mockDeleteSubscriptionFilter).toBeCalledTimes(1);
 		});
 	});
 });
@@ -739,12 +644,6 @@ const givenDescribeFiltersReturns = (arn, filterName = "ship-logs", filterPatter
 	});
 };
 
-const givenDescribeFiltersFailsWith = (code, message, retryable = true) => {
-	mockDescribeSubscriptionFilters.mockReturnValueOnce({
-		promise: () => Promise.reject(new AwsError(code, message, retryable))
-	});
-};
-
 const givenPutSubscriptionFilterSucceeds = () => {
 	mockPutSubscriptionFilter.mockReturnValueOnce({
 		promise: () => Promise.resolve()
@@ -753,18 +652,6 @@ const givenPutSubscriptionFilterSucceeds = () => {
 
 const givenPutSubscriptionFilterFailsWith = (code, message, retryable = true) => {
 	mockPutSubscriptionFilter.mockReturnValueOnce({
-		promise: () => Promise.reject(new AwsError(code, message, retryable))
-	});
-};
-
-const givenDeleteSubscriptionFilterSucceeds = () => {
-	mockDeleteSubscriptionFilter.mockReturnValueOnce({
-		promise: () => Promise.resolve()
-	});
-};
-
-const givenDeleteSubscriptionFilterFailsWith = (code, message, retryable = true) => {
-	mockDeleteSubscriptionFilter.mockReturnValueOnce({
 		promise: () => Promise.reject(new AwsError(code, message, retryable))
 	});
 };

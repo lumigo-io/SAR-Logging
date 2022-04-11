@@ -3,44 +3,13 @@ const cloudWatchLogs = require("./lib/cloudwatch-logs");
 const log = require("@dazn/lambda-powertools-logger");
 
 const { FILTER_NAME, DESTINATION_ARN } = process.env;
-const FILTER_PATTERN = process.env.FILTER_PATTERN || "";
 
 module.exports.existingLogGroups = async () => {
 	const logGroupNames = await cloudWatchLogs.getLogGroups();
 	for (const logGroupName of logGroupNames) {
 		try {
-			if (await filter(logGroupName)) {
-				const old = await cloudWatchLogs.getSubscriptionFilter(logGroupName);
-				if (!old) {
-					log.debug(`[${logGroupName}] doesn't have a filter yet`);          
-					await subscribe(logGroupName);
-				} else if (old.filterName !== FILTER_NAME && process.env.OVERRIDE_MANUAL_CONFIGS !== "true") {
-					log.info(`[${logGroupName}] has an old subscription filter that was added manually, skipped...`, {
-						logGroupName,
-						oldArn: old.destinationArn,
-						oldFilterPattner: old.filterPattern,
-						oldFilterName: old.filterName,
-						arn: DESTINATION_ARN,
-						filterName: FILTER_NAME,
-						filterPattern: FILTER_PATTERN
-					});
-					continue;
-				} else if (old.filterName !== FILTER_NAME) {
-					log.info(`[${logGroupName}] has an old subscription filter that was added manually, replacing...`, {
-						logGroupName,
-						oldArn: old.destinationArn,
-						oldFilterPattner: old.filterPattern,
-						oldFilterName: old.filterName,
-						arn: DESTINATION_ARN,
-						filterName: FILTER_NAME,
-						filterPattern: FILTER_PATTERN
-					});
-
-					await cloudWatchLogs.deleteSubscriptionFilter(logGroupName, old.filterName);
-					await subscribe(logGroupName);
-				} else {
-					await subscribe(logGroupName);
-				}
+			if (await filter(logGroupName)) {				
+				await subscribe(logGroupName);
 			}
 		} catch(error) {
 			log.warn("cannot process existing log group, skipped...", { logGroupName }, error);
