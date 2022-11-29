@@ -31,6 +31,8 @@ Globals:
         FILTER_PATTERN: !Ref FilterPattern
         ROLE_ARN: !GetAtt CloudWatchToKinesisRole.Arn
         LOG_LEVEL: INFO
+        SLEEP_BETWEEN_MAX_QUOTA_REQUESTS: !Ref SleepBetweenMaxQuotaRequests
+        AWS_MAX_REQUESTS_PER_SEC_QUOTA: !Ref AwsMaxRequestsPerSecQuota
 
 Conditions:
   Unsubscribe: !Equals [!Ref UnsubscribeOnDelete, 'true']
@@ -271,3 +273,17 @@ Parameters:
     Default: 6
     Description: >
       (optional) whether to increase the default lambda timeout".
+  SleepBetweenMaxQuotaRequests:
+    Type: Number
+    Default: 0
+    Description: >
+      (optional) Amount of time to sleep after making {AwsMaxRequestsPerSecQuota} consecutive requests.
+      It might be useful if an AWS account has a large amount of LogGroups or if experiencing Rate Exceeded throttling  
+      frequently".
+  AwsMaxRequestsPerSecQuota:
+    Type: Number
+    Default: 5
+    Description: >
+      (optional) AWS quota for the max number of requests per second on DescribeLogGroups. 
+      This parameter is only used when SleepBetweenMaxQuotaRequests is greater than 0. 
+      More info: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html. Defaults to 5".

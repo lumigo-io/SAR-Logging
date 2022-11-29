@@ -3,16 +3,26 @@ const cloudWatchLogs = require("./lib/cloudwatch-logs");
 const log = require("@dazn/lambda-powertools-logger");
 
 const { FILTER_NAME, DESTINATION_ARN } = process.env;
+const SLEEP_BETWEEN_MAX_QUOTA_REQUESTS = parseInt(process.env.SLEEP_BETWEEN_MAX_QUOTA_REQUESTS, 10);
+const AWS_MAX_REQUESTS_PER_SEC_QUOTA = parseInt(process.env.AWS_MAX_REQUESTS_PER_SEC_QUOTA, 10);
+
+function sleep(milliseconds) {
+	return new Promise(r => setTimeout(r, milliseconds));
+}
 
 module.exports.existingLogGroups = async () => {
 	const logGroupNames = await cloudWatchLogs.getLogGroups();
-	for (const logGroupName of logGroupNames) {
+	for  (let log_group_index = 0; log_group_index < logGroupNames.length; log_group_index++) {
+	  const logGroupName = logGroupNames[log_group_index];
 		try {
-			if (await filter(logGroupName)) {				
+			if (await filter(logGroupName)) {
 				await subscribe(logGroupName);
 			}
 		} catch(error) {
 			log.warn("cannot process existing log group, skipped...", { logGroupName }, error);
+		}
+		if (SLEEP_BETWEEN_MAX_QUOTA_REQUESTS && ((log_group_index + 1) % AWS_MAX_REQUESTS_PER_SEC_QUOTA == 0)) {
+		  await sleep(SLEEP_BETWEEN_MAX_QUOTA_REQUESTS);
 		}
 	}
 };
@@ -154,3 +164,4 @@ const unsubscribe = async (logGroupName) => {
 		log.error("failed to unsubscribe log group", { logGroupName }, err);
 	}
 };
+
