@@ -1,6 +1,6 @@
 # cloudwatch-logs-auto-set-retention
 
-[![Version](https://img.shields.io/badge/semver-1.6.0-blue)](template.yml)
+[![Version](https://img.shields.io/badge/semver-1.7.0-blue)](template.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 Updates the retention policy for **new and existing** CloudWatch log groups to the specified number of days.
