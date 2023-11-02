@@ -11,7 +11,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ['cloudwatch', 'logs', 'ops', 'devops']
     HomePageUrl: https://github.com/lumigo/SAR-Logging
-    SemanticVersion: 1.13.0
+    SemanticVersion: 1.14.0
     SourceCodeUrl: https://github.com/lumigo/SAR-Logging
 
 Globals:
@@ -155,7 +155,7 @@ Resources:
     Properties:
       Location:
         ApplicationId: arn:aws:serverlessrepo:us-east-1:374852340823:applications/lambda-invocation-cfn-custom-resource
-        SemanticVersion: 1.5.0
+        SemanticVersion: 1.6.0
 
   # custom resource to invoke the SubscribeExistingLogGroups function during deployment
   InvokeSubscribeExistingLogGroups:
