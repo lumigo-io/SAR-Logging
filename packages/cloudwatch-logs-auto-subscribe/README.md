@@ -56,3 +56,7 @@ For more details, read this [post](https://theburningmonk.com/2019/05/how-to-inc
 `FilterPattern`: (Optional) if specified, will override the filter pattern used to create the subscription.
 
 `UnsubscribeOnDelete`: (Optional) whether to remove the subscription filters that were added by this app. Defaults to "false", allowed values are "true" or "false".
+
+`SleepBetweenMaxQuotaRequests`: (optional) Amount of time in milliseconds to sleep after making {AwsMaxRequestsPerSecQuota} consecutive requests. It might be useful if an AWS account has a large amount of LogGroups or if experiencing Rate Exceeded throttling frequently. Suggested to use a value equal or bellow 1000, as quotas are per second. Defaults to 0.
+
+`AwsMaxRequestsPerSecQuota`: (optional) AWS quota for the max number of requests per second on DescribeLogGroups. This parameter is only used when SleepBetweenMaxQuotaRequests is greater than 0. More info: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html. Defaults to 5.
