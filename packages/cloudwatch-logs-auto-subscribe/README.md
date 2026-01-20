@@ -29,6 +29,8 @@ AutoSubscribeLogGroups:
       FilterName: <defaults to ship-logs>
       FilterPattern: <defaults to [timestamp=*Z, request_id="*-*", event]>
       UnsubscribeOnDelete: <optional, whether to unsubscribe the filters that have been added, true or false, defaults to false>
+      TimeOut: <optional, the maximum execution time for the lambdas, defaults to 6>
+      
 ```
 
 To do the same via `CloudFormation` or the `Serverless` framework, you need to first add the following `Transform`:
@@ -56,3 +58,5 @@ For more details, read this [post](https://theburningmonk.com/2019/05/how-to-inc
 `FilterPattern`: (Optional) if specified, will override the filter pattern used to create the subscription.
 
 `UnsubscribeOnDelete`: (Optional) whether to remove the subscription filters that were added by this app. Defaults to "false", allowed values are "true" or "false".
+
+`TimeOut`: (Optional) the maximum execution time for the lambdas, defaults to 6.
